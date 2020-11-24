@@ -28,39 +28,29 @@ namespace Unitter
 
         Widget GetWidget()
         {
-            var lv = new StoreConnector<GlobalState, GlobalState>(
-                pure: true, // 这个参数不知道干嘛用的
-                converter: (state) => state,
-                builder: (ctx, globalState, dispatcher) =>
+            var lv = new StoreConnector<GlobalState, MqttModel>(
+                // pure: true, // 这个参数不知道干嘛用的
+                converter: (state) => state.model,
+                builder: (ctx, model, dispatcher) =>
                 {
                     var ret = ListView.builder(
-                        itemCount: globalState.count(),
-                        itemBuilder: (context, index) => list(context, globalState, index, dispatcher)
+                        itemCount: model.count(),
+                        itemBuilder: (context, index) => list(context, model, index, dispatcher)
                     );
                     return new Scaffold(
                         appBar: new AppBar(
                             title: new Center(child: new Text("broker列表")),
-                            // backgroundColor: Colors.black,
                             actions: new List<Widget>()
                             {
-                                new FlatButton(
-                                    textColor: Colors.white,
-                                    child: new Text("地图"),
-                                    onPressed: () => { SceneManager.LoadScene("map"); },
-                                    shape: new RoundedRectangleBorder(side: new BorderSide(color: Colors.white))
-                                ),
-                                new FlatButton(
-                                    textColor: Colors.white,
-                                    child: new Text("添加"),
-                                    onPressed: () =>
-                                    {
-                                        Navigator.push(ctx,
-                                            new MaterialPageRoute(
+                                new IconButton(
+                                    icon: new Icon(Icons.map),
+                                    onPressed: () => { SceneManager.LoadScene("map"); }
+                                    ),
+                                new IconButton(
+                                    icon: new Icon(Icons.add),
+                                    onPressed: () => { Navigator.push(ctx, new MaterialPageRoute(
                                                 builder: (context) => new DialogAddHost()
-                                            ));
-                                    },
-                                    shape: new RoundedRectangleBorder(side: new BorderSide(color: Colors.white))
-                                ),
+                                            )); }),
                             }
                         ),
                         body: ret
@@ -71,44 +61,44 @@ namespace Unitter
             return lv;
         }
 
-        ListTile list(BuildContext context, GlobalState state, int index, Dispatcher dispatcher)
+        ListTile list(BuildContext context, MqttModel model, int index, Dispatcher dispatcher)
         {
-            return list(context, state, state.GetBrokerModelByIdx(index), dispatcher);
+            return list(context, model, model.GetBrokerModelByIdx(index), dispatcher);
         }
 
-        ListTile list(BuildContext context, GlobalState state, BrokerModel _model, Dispatcher dispatcher)
+        ListTile list(BuildContext context, MqttModel mqttModel, BrokerModel brokerModel, Dispatcher dispatcher)
         {
-            string l = _model.host[0].ToString().ToUpper();
-            Debug.Log($"in host list,  {_model.host}, {state.count()}");
+            string l = brokerModel.host[0].ToString().ToUpper();
+            Debug.Log($"in host list,  {brokerModel.host}, {mqttModel.count()}");
             return new ListTile(
-                title: new Text(_model.host),
-                leading: new CircleAvatar(
-                    child: new Text(l)
-                ),
-                subtitle: new Text(_model.allTopices.Count.ToString()),
+                title: new Text(brokerModel.host),
+                leading: new CircleAvatar(child: new Text(l)),
+                subtitle: new Text(brokerModel.allTopices.Count.ToString()),
                 trailing: new Row(
                     mainAxisSize: MainAxisSize.min,
                     children: new List<Widget>()
                     {
                         new IconButton(
-                            icon: new Icon(Icons.delete, color: Colors.blue, size: 16),
-                            iconSize : 48),
-                        new FlatButton(
-                            textColor: Colors.white,
-                            child: new CircleAvatar(child: new Text("删除")),
-                            onPressed: () => { dispatcher.dispatch(new BaseReducer()); }
-                        ),
-                        new FlatButton(
-                            textColor: Colors.white,
-                            child: new CircleAvatar(child: new Text("连接")),
+                            icon: new Icon(Icons.delete),
                             onPressed: () =>
                             {
-                                Debug.Log("should connect host");
-                                Navigator.push(context, new MaterialPageRoute(
-                                        builder: (ctx) => new TopicPage(_model.host) //_model.msgWidget
-                                    )
-                                );
-                            })
+                                mqttModel.remove(brokerModel.host);
+                                dispatcher.dispatch(new BaseReducer());
+                            }
+                            ),
+                        new Switch(
+                            value: brokerModel.connected.isNotEmpty(),
+                            onChanged: (newValue) =>
+                            {
+                                Debug.Log($"in broker switch {newValue}");
+                                brokerModel.stateSwitch();
+                                dispatcher.dispatch(new BaseReducer());
+                            }),
+                        new IconButton(
+                            icon: new Icon(Icons.arrow_right),
+                            onPressed: () => { Navigator.push(context, new MaterialPageRoute(
+                                (ctx) => new TopicPage(brokerModel.host)
+                                )); })
                     }),
                 onTap: () =>
                 {
@@ -118,6 +108,7 @@ namespace Unitter
             );
         }
     }
+
     public class DialogAddHost : StatelessWidget
     {
         public DialogAddHost(Key key = null) : base(key)
@@ -126,10 +117,11 @@ namespace Unitter
 
         public override Widget build(BuildContext context)
         {
-            return new StoreProvider<GlobalState>(GlobalState.store(), GetWidget());
+            return GetWidget();
+            // return new StoreProvider<GlobalState>(GlobalState.store(), GetWidget());
         }
 
-        Widget inputButton(BuildContext ctx, GlobalState globalState, Dispatcher dispatcher)
+        Widget inputButton(BuildContext ctx, MqttModel mqttModel, Dispatcher dispatcher)
         {
             TextEditingController tec = new TextEditingController();
             return new Center(
@@ -160,8 +152,8 @@ namespace Unitter
                                         }
                                         else
                                         {
-                                            globalState.add(new BrokerModel(tec.text));
-                                            Debug.Log($"{globalState.count()}, {tec.text}");
+                                            mqttModel.add(new BrokerModel(tec.text));
+                                            Debug.Log($"{mqttModel.count()}, {tec.text}");
                                             dispatcher.dispatch(new BaseReducer());
                                             Navigator.pop(ctx);
                                         }
@@ -178,10 +170,10 @@ namespace Unitter
 
         Widget GetWidget()
         {
-            var lv = new StoreConnector<GlobalState, GlobalState>(
+            var lv = new StoreConnector<GlobalState, MqttModel>(
                 pure: true, // 这个参数不知道干嘛用的
-                converter: (state) => state,
-                builder: (ctx, globalState, dispatcher) => { return inputButton(ctx, globalState, dispatcher); }
+                converter: (state) => state.model,
+                builder: (ctx, mqttModel, dispatcher) => { return inputButton(ctx, mqttModel, dispatcher); }
             );
 
             return lv;

@@ -26,37 +26,12 @@ namespace Unitter
             this.datetime = datetime;
             this.message = msg;
         }
-
-        
-        
-        // public class MsgReducer : BaseReducer
-        // {
-        //     protected string topic = null;
-        //     protected string host = null;
-        //
-        //     public MsgReducer(string host, string topic)
-        //     {
-        //         this.host = host;
-        //         this.topic = topic;
-        //     }
-        // }
-        // public class ReducerClear : MsgReducer
-        // {
-        //     public ReducerClear(string host, string topic) : base(host, topic)
-        //     {
-        //     }
-        //
-        //     public override GlobalState reduce(GlobalState state)
-        //     {
-        //         // state.allBrokers[host].allTopices[topic].clear();
-        //         return state;
-        //     }
-        // }
     };
 
     public class TopicModel 
     {
         private List<MsgModel> msgModels  = new List<MsgModel>();
+        public List<bool> connected { get; private set; } = new List<bool>();
         private MsgModel empty;
         public string topic { get; }
         public string host { get; }
@@ -106,6 +81,16 @@ namespace Unitter
             this.topic = topic;
             this.maxCnt = maxCnt;
             empty = new MsgModel(topic, "", "", "");
+        }
+        
+        public void stateSwitch()
+        {
+            if(this.connected.isEmpty())
+                this.connected.Add(true);
+            else
+                this.connected.Clear();
+            
+            Debug.Log($"topic state: {connected.Count}");
         }
 
         public MsgModel latest()
@@ -197,7 +182,9 @@ namespace Unitter
     public class BrokerModel 
     {
         // DataTable msgs = new DataTable();
-        public string host;
+        public string host { get; }
+        public List<bool> connected { get; private set; } = new List<bool>();
+        
         public Dictionary<string, TopicModel> allTopices = new Dictionary<string, TopicModel>();
 
         public TopicModel GetTopicModelByIdx(int idx)
@@ -210,6 +197,16 @@ namespace Unitter
         {
             this.allTopices.Add(model.topic, model);
             // notifyListeners();
+        }
+
+        public void stateSwitch()
+        {
+            if(this.connected.isEmpty())
+                this.connected.Add(true);
+            else
+                this.connected.Clear();
+            
+            Debug.Log($"broker state: {connected.Count}");
         }
 
         public void remove(string topic)
@@ -241,16 +238,9 @@ namespace Unitter
         }
     }
 
-    public class BaseReducer
-    {
-        virtual public GlobalState reduce(GlobalState state)
-        {
-            return state;
-        }
 
-    }
 
-    public class GlobalState
+    public class MqttModel
     {
         protected Dictionary<string, BrokerModel> allBrokers = new Dictionary<string, BrokerModel>();
 
@@ -279,10 +269,10 @@ namespace Unitter
                 return null;
             return allBrokers.ElementAt(idx).Value;
         }
-        public static GlobalState dummy()
+        public static MqttModel dummy()
         {
             Debug.Log("host dummy");
-            GlobalState ret = new GlobalState();
+            MqttModel ret = new MqttModel();
             ret.allBrokers = new Dictionary<string, BrokerModel>()
             {
                 {"testHost1", BrokerModel.dummy("testHost1")},
@@ -290,19 +280,22 @@ namespace Unitter
             };
             return ret;
         }
+    }
 
-        public GlobalState()
+    public class GlobalState
+    {
+        public MqttModel model { get; }
+        public GlobalState(MqttModel model)
         {
+            this.model = model;
             Debug.Log("new state");
         }
-
-        public static GlobalState state = GlobalState.dummy();
-
+        
         public static Store<GlobalState> store()
         {
             return new Store<GlobalState>(
                 reducer: Reducer,
-                initialState: state
+                initialState: new GlobalState(MqttModel.dummy())
             );
         }
 
@@ -312,6 +305,13 @@ namespace Unitter
             return baseReducer.reduce(state);
         }
     }
-    
+    public class BaseReducer
+    {
+        virtual public GlobalState reduce(GlobalState state)
+        {
+            return state;
+        }
+
+    }
 
 }

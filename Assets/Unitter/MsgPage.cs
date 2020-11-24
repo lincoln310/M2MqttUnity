@@ -32,7 +32,7 @@ namespace Unitter
         {
             Widget widget = new StoreConnector<GlobalState, TopicModel>(
                 // pure: true, // 这个参数不知道干嘛用的
-                converter: (state) => { return state.model(this.broker).allTopices[this.topic]; },
+                converter: (state) => { return state.model.model(this.broker).allTopices[this.topic]; },
                 builder: (ctx, topicModel, dispatcher) =>
                 {
                     ListView body = ListView.builder(
@@ -41,24 +41,22 @@ namespace Unitter
                     );
                     return new Scaffold(
                         appBar: new AppBar(
-                            title: new Center(child:new Text("topic消息")),
-                            leading: new FlatButton(
-                                textColor: Colors.white,
-                                child: new Text("返回"),
-                                onPressed: () => { Navigator.pop(ctx); },
-                                shape: new RoundedRectangleBorder(side: new BorderSide(color: Colors.white))
+                            title: new Center(child: new Text("topic消息")),
+                            leading: new IconButton(
+                                icon: new Icon(Icons.arrow_back),
+                                onPressed: () => { Navigator.pop(ctx); }
                             ),
                             actions: new List<Widget>()
                             {
-                                new FlatButton(
-                                    textColor: Colors.white,
-                                    child: new Text("清空"),
+                                new IconButton(
+                                    // textColor: Colors.white,
+                                    // shape: new RoundedRectangleBorder(side: new BorderSide(color: Colors.white)),
+                                    icon: new Icon(Icons.delete),
                                     onPressed: () =>
                                     {
                                         topicModel.clear();
                                         dispatcher.dispatch(new BaseReducer());
-                                    },
-                                    shape: new RoundedRectangleBorder(side: new BorderSide(color: Colors.white))
+                                    }
                                 )
                             }
                         ),

@@ -21,6 +21,13 @@ namespace Unitter
     public class MqttPage : UIWidgetsPanel
     {
         private M2MqttUnityClient mqttClient;
+        
+        protected override void OnEnable()
+        {
+            var font = Resources.Load<Font>(path: "Font/Material Icons");
+            FontManager.instance.addFont(font, "Material Icons");
+            base.OnEnable();
+        }
 
         // Start is called before the first frame update
         protected override Widget createWidget()
