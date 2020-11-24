@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO.Compression;
+using System.Linq;
 using Microsoft.Win32;
 using Unity.UIWidgets;
 using Unity.UIWidgets.foundation;
 using Unity.UIWidgets.Redux;
 using Unity.UIWidgets.widgets;
+using UnityEngine;
 
 namespace Unitter
 {
@@ -25,17 +27,82 @@ namespace Unitter
             this.message = msg;
         }
 
+        
+        
+        // public class MsgReducer : BaseReducer
+        // {
+        //     protected string topic = null;
+        //     protected string host = null;
+        //
+        //     public MsgReducer(string host, string topic)
+        //     {
+        //         this.host = host;
+        //         this.topic = topic;
+        //     }
+        // }
+        // public class ReducerClear : MsgReducer
+        // {
+        //     public ReducerClear(string host, string topic) : base(host, topic)
+        //     {
+        //     }
+        //
+        //     public override GlobalState reduce(GlobalState state)
+        //     {
+        //         // state.allBrokers[host].allTopices[topic].clear();
+        //         return state;
+        //     }
+        // }
     };
 
-    public class TopicModel :ChangeNotifier 
+    public class TopicModel 
     {
-        public List<MsgModel> msgModels { get; set; }
+        private List<MsgModel> msgModels  = new List<MsgModel>();
         private MsgModel empty;
         public string topic { get; }
+        public string host { get; }
         private int maxCnt;
-        
-        public TopicModel(string topic, int maxCnt = 100)
+
+        // public class BrokerReducer : BaseReducer
+        // {
+        //     protected string topic = null;
+        //     protected string host = null;
+        //
+        //     public BrokerReducer(string host, string topic)
+        //     {
+        //         this.host = host;
+        //         this.topic = topic;
+        //     }
+        // }
+        // public class AddReducer: BrokerReducer{
+        //     public AddReducer(string host, string topic) : base(host, topic)
+        //     {
+        //     }
+        //
+        //     public override GlobalState reduce(GlobalState state)
+        //     {
+        //         state.allBrokers[this.host].add(new TopicModel(this.host, this.topic));
+        //         return state;
+        //     }
+        //
+        // }
+        //
+        // public class RemoveReducer : BrokerReducer
+        // {
+        //     public RemoveReducer(string host, string topic) : base(host, topic)
+        //     {
+        //     }
+        //
+        //     public override GlobalState reduce(GlobalState state)
+        //     {
+        //         state.allBrokers[this.host].remove(this.topic);
+        //         return state;
+        //     }
+        //
+        // }
+        //
+        public TopicModel(string host, string topic, int maxCnt = 100)
         {
+            this.host = host;
             this.topic = topic;
             this.maxCnt = maxCnt;
             empty = new MsgModel(topic, "", "", "");
@@ -43,23 +110,42 @@ namespace Unitter
 
         public MsgModel latest()
         {
-            return msgModels.Count > 0 ? msgModels[msgModels.Count - 1] : empty;
+            return this.msgModels.Count > 0 ? this.msgModels[this.msgModels.Count - 1] : empty;
+        }
+
+        public int count()
+        {
+            return this.msgModels.Count;
+        }
+
+        public MsgModel msgOfIdx(int idx)
+        {
+            return this.msgModels[idx];
+        }
+
+        public void clear2Left(int cnt)
+        {
+            if(this.msgModels.Count > cnt)
+                this.msgModels.RemoveRange(0, this.msgModels.Count - cnt);
+            // notifyListeners();
         }
 
         public void add(MsgModel model)
         {
-            
-            if(msgModels.Count > maxCnt)
-                msgModels.RemoveRange(0, msgModels.Count - maxCnt);
-            msgModels.Add(model);
-            notifyListeners();
+            this.msgModels.Add(model);
+            // notifyListeners();
         }
 
-
-        public static TopicModel dummy(string topic)
+        public void clear()
         {
-            TopicModel ret = new TopicModel(topic);
-            ret.msgModels = new List<MsgModel>()
+            this.msgModels.Clear();
+            // notifyListeners();
+        }
+        
+        public static TopicModel dummy(string host, string topic)
+        {
+            TopicModel ret = new TopicModel(host, topic);
+            var msgs = new List<MsgModel>()
             {
                 new MsgModel(
                     topic,
@@ -98,43 +184,47 @@ namespace Unitter
                     "It has been re-scheduled to next Saturday 7.30pm"
                 )
             };
+            foreach (var tmp in msgs)
+            {
+                ret.add(tmp);
+            }
             return ret;
         }
 
     }
     
     
-    public class BrokerModel : ChangeNotifier
+    public class BrokerModel 
     {
         // DataTable msgs = new DataTable();
         public string host;
-        public Dictionary<string, int> topic2Idx = new Dictionary<string, int>();
-        public List<TopicModel> allTopices = new List<TopicModel>();
+        public Dictionary<string, TopicModel> allTopices = new Dictionary<string, TopicModel>();
 
-        public TopicModel getModelByTopic(string topic)
+        public TopicModel GetTopicModelByIdx(int idx)
         {
-            if (topic2Idx.ContainsKey(topic))
-            {
-                return allTopices[topic2Idx[topic]];
-            }
-
-            return null;
+            if (allTopices.Count <= idx)
+                return null;
+            return allTopices.ElementAt(idx).Value;
         }
-        void add(string topic, TopicModel model = null)
+        public void add(TopicModel model)
         {
-            if(model == null)
-                model = new TopicModel(topic);
-            this.topic2Idx[topic] = this.allTopices.Count;
-            this.allTopices.Add(model);
+            this.allTopices.Add(model.topic, model);
+            // notifyListeners();
         }
 
-        public void addMsg(string topic, MsgModel msgModel)
+        public void remove(string topic)
         {
-            if (!this.topic2Idx.ContainsKey(topic))
-                this.add(topic);
-            int idx = this.topic2Idx[topic];
-            this.allTopices[idx].add(msgModel);
-            notifyListeners();
+            this.allTopices.Remove(topic);
+            // notifyListeners();
+        }
+
+        public void addMsg(string host, string topic, MsgModel msgModel)
+        {
+            if (!this.allTopices.ContainsKey(topic))
+                this.add(new TopicModel(host, topic));
+            TopicModel topicModel = this.allTopices[topic];
+            topicModel.add(msgModel);
+            // notifyListeners();
         }
 
         public BrokerModel(string host)
@@ -145,41 +235,74 @@ namespace Unitter
         public static BrokerModel dummy(string host)
         {
             BrokerModel ret = new BrokerModel(host);
-            ret.allTopices.Add(TopicModel.dummy("testTopic1"));
-            ret.topic2Idx["testTopic1"] = 0;
-            ret.allTopices.Add(TopicModel.dummy("testTopic2"));
-            ret.topic2Idx["testTopic2"] = 1;
+            ret.add(TopicModel.dummy(host, "testTopic1"));
+            ret.add(TopicModel.dummy(host, "testTopic2"));
             return ret;
         }
     }
 
     public class BaseReducer
     {
-        public GlobalState reduce(GlobalState state)
+        virtual public GlobalState reduce(GlobalState state)
         {
-            throw new NotImplementedException();
+            return state;
         }
 
-        // private static List<BaseReducer> _registed = new List<BaseReducer>();
-        // public void regist(BaseReducer reducer)
-        // {
-        //     _registed.Add(reducer);
-        // }
     }
 
     public class GlobalState
     {
-        public Dictionary<string, BrokerModel> allBrokers { get; set; } = new Dictionary<string, BrokerModel>()
+        protected Dictionary<string, BrokerModel> allBrokers = new Dictionary<string, BrokerModel>();
+
+        public int count()
         {
-            {"testHost1", BrokerModel.dummy("testHost1")},
-            {"testHost2", BrokerModel.dummy("testHost2")}
-        };
+            return this.allBrokers.Count;
+        }
+
+        public void add(BrokerModel model)
+        {
+            this.allBrokers[model.host] = model;
+        }
+
+        public void remove(string modelName)
+        {
+            this.allBrokers.Remove(modelName);
+        }
+
+        public BrokerModel model(string modelName)
+        {
+            return this.allBrokers[modelName];
+        }
+        public BrokerModel GetBrokerModelByIdx(int idx)
+        {
+            if (allBrokers.Count <= idx)
+                return null;
+            return allBrokers.ElementAt(idx).Value;
+        }
+        public static GlobalState dummy()
+        {
+            Debug.Log("host dummy");
+            GlobalState ret = new GlobalState();
+            ret.allBrokers = new Dictionary<string, BrokerModel>()
+            {
+                {"testHost1", BrokerModel.dummy("testHost1")},
+                {"testHost2", BrokerModel.dummy("testHost2")}
+            };
+            return ret;
+        }
+
+        public GlobalState()
+        {
+            Debug.Log("new state");
+        }
+
+        public static GlobalState state = GlobalState.dummy();
 
         public static Store<GlobalState> store()
         {
             return new Store<GlobalState>(
                 reducer: Reducer,
-                initialState: new GlobalState()
+                initialState: state
             );
         }
 

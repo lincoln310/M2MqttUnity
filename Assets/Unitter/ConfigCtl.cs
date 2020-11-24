@@ -30,6 +30,7 @@ public class ConfigCtl : MonoBehaviour
     {
         cfgActive = !cfgActive;
         SceneManager.LoadScene("ui");
+        Scene scene = SceneManager.GetSceneByName("ui");
         Debug.Log("clicked bt");
     }
 }
