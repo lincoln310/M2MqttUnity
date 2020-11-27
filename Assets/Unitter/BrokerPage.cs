@@ -23,21 +23,12 @@ namespace Unitter
 
         public override Widget build(BuildContext context)
         {
-            return GetWidget();
-            // return new StoreProvider<GlobalState>(GlobalState.store(), GetWidget());
-        }
-
-        Widget GetWidget()
-        {
-            var lv = new StoreConnector<GlobalState, MqttModel>(
+            Debug.Log("broker page build");
+            return new StoreConnector<GlobalState, MqttModel>(
                 // pure: true, // 这个参数不知道干嘛用的
-                converter: (state) => state.model,
+                converter: (state) => state.mqttModel,
                 builder: (ctx, model, dispatcher) =>
                 {
-                    var ret = ListView.builder(
-                        itemCount: model.count(),
-                        itemBuilder: (context, index) => list(context, model, index, dispatcher)
-                    );
                     return new Scaffold(
                         appBar: new AppBar(
                             title: new Center(child: new Text("broker列表")),
@@ -50,25 +41,22 @@ namespace Unitter
                                 new IconButton(
                                     icon: new Icon(Icons.add),
                                     onPressed: () => { Navigator.push(ctx, new MaterialPageRoute(
-                                                builder: (context) => new DialogAddHost()
+                                                builder: (ctx2) => new DialogAddHost()
                                             )); }),
                             }
                         ),
-                        body: ret
+                        body: ListView.builder(
+                            itemCount: model.count(),
+                            itemBuilder: (ctx2, index) => list(context, model, index, dispatcher)
+                        )
                     );
                 }
             );
-
-            return lv;
         }
 
-        ListTile list(BuildContext context, MqttModel model, int index, Dispatcher dispatcher)
+        ListTile list(BuildContext context, MqttModel mqttModel, int index, Dispatcher dispatcher)
         {
-            return list(context, model, model.GetBrokerModelByIdx(index), dispatcher);
-        }
-
-        ListTile list(BuildContext context, MqttModel mqttModel, BrokerModel brokerModel, Dispatcher dispatcher)
-        {
+            BrokerModel brokerModel = mqttModel.GetBrokerModelByIdx(index);
             string l = brokerModel.name[0].ToString().ToUpper();
             Debug.Log($"in host list, {brokerModel.name}, {brokerModel.host}, {mqttModel.count()}");
             return new ListTile(
@@ -111,8 +99,11 @@ namespace Unitter
 
         public override Widget build(BuildContext context)
         {
-            return GetWidget();
-            // return new StoreProvider<GlobalState>(GlobalState.store(), GetWidget());
+            return new StoreConnector<GlobalState, MqttModel>(
+                // pure: true, // 这个参数不知道干嘛用的
+                converter: (state) => state.mqttModel,
+                builder: (ctx, mqttModel, dispatcher) => { return inputButton(ctx, mqttModel, dispatcher); }
+            );
         }
 
         Widget inputButton(BuildContext ctx, MqttModel mqttModel, Dispatcher dispatcher)
@@ -170,17 +161,6 @@ namespace Unitter
                                 ),
                             })
                     }));
-        }
-
-        Widget GetWidget()
-        {
-            var lv = new StoreConnector<GlobalState, MqttModel>(
-                pure: true, // 这个参数不知道干嘛用的
-                converter: (state) => state.model,
-                builder: (ctx, mqttModel, dispatcher) => { return inputButton(ctx, mqttModel, dispatcher); }
-            );
-
-            return lv;
         }
     }
 }

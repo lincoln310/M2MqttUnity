@@ -11,14 +11,14 @@ namespace Unitter
     public class GlobalState 
     {
         public static BuildContext context { get; set; }
-        public MqttModel model { get; }
+        public MqttModel mqttModel { get; }
         public GlobalState(MqttModel model)
         {
-            this.model = model;
+            this.mqttModel = model;
             Debug.Log("new state");
         }
-        
-        public static Dictionary<string, BuildContext> ctxes { get; }= new Dictionary<string, BuildContext>();
+
+        public static bool changed { get; set; } = false;
         
         public static Store<GlobalState> store = new Store<GlobalState>(
             reducer: Reducer,

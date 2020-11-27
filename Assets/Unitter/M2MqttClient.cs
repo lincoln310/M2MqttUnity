@@ -25,7 +25,6 @@ SOFTWARE.
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
@@ -39,7 +38,7 @@ namespace M2MqttUnity
     /// <summary>
     /// Generic MonoBehavior wrapping a MQTT client, using a double buffer to postpone message processing in the main thread. 
     /// </summary>
-    public class PureM2MqttUnityClient //: MonoBehaviour
+    public class M2MqttClient 
     {
         [Header("MQTT broker configuration")]
         [Tooltip("IP address or URL of the host running the broker")]
@@ -54,7 +53,8 @@ namespace M2MqttUnity
         [Tooltip("Connection timeout in milliseconds")]
         public int timeoutOnConnection = MqttSettings.MQTT_CONNECT_TIMEOUT;
         [Tooltip("Connect on startup")]
-        public bool autoConnect = true;
+        public bool autoConnect = false;
+        public bool autoReconn = true;
         [Tooltip("UserName for the MQTT broker. Keep blank if no user name is required.")]
         public string mqttUserName = null;
         [Tooltip("Password for the MQTT broker. Keep blank if no password is required.")]
@@ -64,6 +64,7 @@ namespace M2MqttUnity
         /// Wrapped MQTT client
         /// </summary>
         protected MqttClient client;
+
 
         /// <summary>
         /// Event fired when a connection is successfully established
@@ -79,32 +80,9 @@ namespace M2MqttUnity
         /// </summary>
         public virtual void Connect()
         {
-            try
+            if (client == null || !client.IsConnected)
             {
-                if (client == null)
-                {
-                    client = new MqttClient(brokerAddress, brokerPort, isEncrypted, null, null, isEncrypted ? MqttSslProtocols.SSLv3 : MqttSslProtocols.None);
-                }
-                client.Settings.TimeoutOnConnection = timeoutOnConnection;
-                string clientId = Guid.NewGuid().ToString();
-                client.Connect(clientId, mqttUserName, mqttPassword);
-                if (client.IsConnected)
-                {
-                    client.ConnectionClosed += OnMqttConnectionClosed;
-                    // register to message received 
-                    client.MqttMsgPublishReceived += OnMqttMessageReceived; 
-                    OnConnected();
-                }
-                else
-                {
-                    OnConnectionFailed("CONNECTION FAILED!");
-                }
-            }
-            catch (Exception e)
-            {
-                client = null;
-                Debug.LogErrorFormat("Failed to connect to {0}:{1}:\n{2}", brokerAddress, brokerPort, e.ToString());
-                OnConnectionFailed(e.Message);
+                DoConnect();
             }
         }
 
@@ -115,8 +93,7 @@ namespace M2MqttUnity
         {
             if (client != null)
             {
-                CloseConnection();
-                OnDisconnected();
+                DoDisconnect();
             }
         }
 
@@ -170,11 +147,11 @@ namespace M2MqttUnity
         }
 
         /// <summary>
-        /// Disconnect before the application quits.
+        /// Override this method for each received message you need to process.
         /// </summary>
-        protected virtual void OnApplicationQuit()
+        protected virtual void DecodeMessage(string topic, byte[] message)
         {
-            CloseConnection();
+            Debug.LogFormat("Message received on topic: {0}", topic);
         }
 
         /// <summary>
@@ -185,25 +162,90 @@ namespace M2MqttUnity
             Debug.Log("Disconnected.");
         }
 
-        
-        protected virtual void OnMqttConnectionClosed(object sender, EventArgs e)
-        {
-            // Set unexpected connection closed only if connected (avoid event handling in case of controlled disconnection)
-            Fx.SleepThread(connectionDelay);
-            Connect();
-        }
-        
         /// <summary>
-        /// Override this method for each received message you need to process.
+        /// Override this method to take some actions when the connection is closed.
         /// </summary>
-        protected virtual void DecodeMessage(string topic, byte[] message)
+        protected virtual void OnConnectionLost()
         {
-            Debug.LogFormat("Message received on topic: {0}", topic);
+            Debug.LogWarning("CONNECTION LOST!");
         }
-        
+
         private void OnMqttMessageReceived(object sender, MqttMsgPublishEventArgs msg)
         {
             DecodeMessage(msg.Topic, msg.Message);
+        }
+
+        private void OnMqttConnectionClosed(object sender, EventArgs e)
+        {
+            if (autoReconn)
+            {
+                DoConnect();
+            }
+            // Set unexpected connection closed only if connected (avoid event handling in case of controlled disconnection)
+        }
+
+        /// <summary>
+        /// Connects to the broker using the current settings.
+        /// </summary>
+        /// <returns>The execution is done in a coroutine.</returns>
+        private void DoConnect()
+        {
+            // create client instance 
+            if (client == null)
+            {
+                try
+                {
+#if (!UNITY_EDITOR && UNITY_WSA_10_0 && !ENABLE_IL2CPP)
+                    client = new MqttClient(brokerAddress,brokerPort,isEncrypted, isEncrypted ? MqttSslProtocols.SSLv3 : MqttSslProtocols.None);
+#else
+                    client = new MqttClient(brokerAddress, brokerPort, isEncrypted, null, null, isEncrypted ? MqttSslProtocols.SSLv3 : MqttSslProtocols.None);
+                    //System.Security.Cryptography.X509Certificates.X509Certificate cert = new System.Security.Cryptography.X509Certificates.X509Certificate();
+                    //client = new MqttClient(brokerAddress, brokerPort, isEncrypted, cert, null, MqttSslProtocols.TLSv1_0, MyRemoteCertificateValidationCallback);
+#endif
+                }
+                catch (Exception e)
+                {
+                    client = null;
+                    Debug.LogErrorFormat("CONNECTION FAILED! {0}", e.ToString());
+                    OnConnectionFailed(e.Message);
+                    return ;
+                }
+            }
+            else if (client.IsConnected)
+            {
+                return ;
+            }
+            OnConnecting();
+
+            client.Settings.TimeoutOnConnection = timeoutOnConnection;
+            string clientId = Guid.NewGuid().ToString();
+            try
+            {
+                client.Connect(clientId, mqttUserName, mqttPassword);
+                if (client.IsConnected)
+                {
+                    client.ConnectionClosed += OnMqttConnectionClosed;
+                    // register to message received 
+                    client.MqttMsgPublishReceived += OnMqttMessageReceived;
+                    OnConnected();
+                }
+                else
+                {
+                    OnConnectionFailed("CONNECTION FAILED!");
+                }
+            }
+            catch (Exception e)
+            {
+                client = null;
+                Debug.LogErrorFormat("Failed to connect to {0}:{1}:\n{2}", brokerAddress, brokerPort, e.ToString());
+                OnConnectionFailed(e.Message);
+            }
+        }
+
+        private void DoDisconnect()
+        {
+            CloseConnection();
+            OnDisconnected();
         }
 
         private void CloseConnection()
@@ -220,5 +262,21 @@ namespace M2MqttUnity
                 client = null;
             }
         }
+
+#if ((!UNITY_EDITOR && UNITY_WSA_10_0))
+        private void OnApplicationFocus(bool focus)
+        {
+            // On UWP 10 (HoloLens) we cannot tell whether the application actually got closed or just minimized.
+            // (https://forum.unity.com/threads/onapplicationquit-and-ondestroy-are-not-called-on-uwp-10.462597/)
+            if (focus)
+            {
+                Connect();
+            }
+            else
+            {
+                CloseConnection();
+            }
+        }
+#endif
     }
 }

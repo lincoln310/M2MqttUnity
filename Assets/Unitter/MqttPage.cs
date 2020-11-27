@@ -42,5 +42,16 @@ namespace Unitter
                                 Animation<float> secondaryAnimation) => builder(context)
                         )));
         }
+
+        protected override void Update()
+        {
+            base.Update();
+            if (GlobalState.changed)
+            {
+                Debug.Log("changed backGround");
+                GlobalState.changed = false;
+                GlobalState.store.dispatcher.dispatch<TopicModel>((GlobalState.DlgAction) delegate { return GlobalState.store.getState(); });
+            }
+        }
     }
 }

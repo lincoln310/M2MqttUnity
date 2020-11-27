@@ -165,8 +165,7 @@ namespace M2MqttUnity
         /// </summary>
         protected virtual void Awake()
         {
-            frontMessageQueue = messageQueue1;
-            backMessageQueue = messageQueue2;
+            SwapMqttMessageQueues();
         }
 
         /// <summary>
@@ -244,7 +243,7 @@ namespace M2MqttUnity
         private void SwapMqttMessageQueues()
         {
             frontMessageQueue = frontMessageQueue == messageQueue1 ? messageQueue2 : messageQueue1;
-            backMessageQueue = backMessageQueue == messageQueue1 ? messageQueue2 : messageQueue1;
+            backMessageQueue = backMessageQueue == messageQueue2 ? messageQueue1 : messageQueue2;
         }
 
         private void OnMqttMessageReceived(object sender, MqttMsgPublishEventArgs msg)
