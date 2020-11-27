@@ -16,9 +16,9 @@ namespace Unitter
         private string broker = null;
         private string topic = null;
 
-        public MsgWidget(string host, string topic, Key key = null) : base(key)
+        public MsgWidget(string brokerName, string topic, Key key = null) : base(key)
         {
-            this.broker = host;
+            this.broker = brokerName;
             this.topic = topic;
         }
 
@@ -31,7 +31,7 @@ namespace Unitter
         Widget GetWidget()
         {
             Widget widget = new StoreConnector<GlobalState, TopicModel>(
-                // pure: true, // 这个参数不知道干嘛用的
+                pure: true, // 这个参数不知道干嘛用的
                 converter: (state) => { return state.model.model(this.broker).allTopices[this.topic]; },
                 builder: (ctx, topicModel, dispatcher) =>
                 {
@@ -55,7 +55,7 @@ namespace Unitter
                                     onPressed: () =>
                                     {
                                         topicModel.clear();
-                                        dispatcher.dispatch(new BaseReducer());
+                                        dispatcher.dispatch(topicModel);
                                     }
                                 )
                             }

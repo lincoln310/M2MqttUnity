@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using RSG;
 using UIWidgetsGallery.gallery;
 using Unity.UIWidgets;
 using Unity.UIWidgets.foundation;
@@ -15,31 +17,61 @@ namespace Unitter
 {
     public class TopicPage : StatelessWidget
     {
-        private string broker = null;
+        private string brokerName = null;
 
-        public TopicPage(string broker, Key key = null) : base(key)
+        public TopicPage(string brokerName, Key key = null) : base(key)
         {
-            this.broker = broker;
+            this.brokerName = brokerName;
         }
 
         public override Widget build(BuildContext context)
         {
-            return GetWidget();
+            Widget widget = GetWidget();
+            return widget;
             // return new StoreProvider<GlobalState>(GlobalState.store(), GetWidget());
         }
 
+        static public Widget TurnOnOff(BrokerModel brokerModel, Dispatcher dispatcher)
+        {
+            return new Switch(
+                value: brokerModel.connected,
+                onChanged: (newValue) =>
+                {
+                    dispatcher.dispatch((Action) delegate()
+                    {
+                        brokerModel.stateSwitch();
+                    });
 
+                });
+        }
+
+        void Refresh(BuildContext ctx, Dispatcher dispatcher, object obj)
+        {
+            Promise.Delayed(TimeSpan.FromSeconds(0.1f)).Then(
+                () =>
+                {
+                    dispatcher.dispatch((Action) delegate
+                    { });
+                    //dosomethings
+                    Refresh(ctx, dispatcher, obj);
+                }
+            );
+        }
+        
         Widget GetWidget()
         {
+            
             Widget body = new StoreConnector<GlobalState, BrokerModel>(
                 // pure: true, // 这个参数不知道干嘛用的
-                converter: (state) => { return state.model.model(this.broker); },
+                converter: (state) => { return state.model.model(this.brokerName); },
                 builder: (ctx, brokerModel, dispatcher) =>
                 {
+                    brokerModel.ctx = ctx;
                     var lv = ListView.builder(
                         itemCount: brokerModel.allTopices.Count,
                         itemBuilder: (context, index) => list(context, brokerModel, index, dispatcher)
                     );
+                    
                     return new Scaffold(
                         appBar: new AppBar(
                             title: new Center(child: new Text("topic消息")),
@@ -49,15 +81,15 @@ namespace Unitter
                                 onPressed: () => { Navigator.pop(ctx); }),
                             actions: new List<Widget>()
                             {
+                                TurnOnOff(brokerModel, dispatcher),
                                 new IconButton(
                                     // textColor: Colors.white,
                                     // shape: new RoundedRectangleBorder(side: new BorderSide(color: Colors.white)),
                                     icon: new Icon(Icons.add),
                                     onPressed: () =>
                                     {
-                                        Debug.Assert(false, "没有实施订阅消息");
                                         Navigator.push(ctx, new MaterialPageRoute(
-                                            builder: (context) => new DialogSubTopic(this.broker)
+                                            builder: (context) => new DialogSubTopic(this.brokerName)
                                         ));
                                     }
                                 ),
@@ -78,6 +110,7 @@ namespace Unitter
 
         ListTile list(BuildContext context, BrokerModel brokerModel, TopicModel topicModel, Dispatcher dispatcher)
         {
+            Refresh(context, dispatcher, brokerModel);
             string l = topicModel.topic[0].ToString().ToUpper();
             Debug.Log($"in topic list,  {topicModel.topic}, {topicModel.count()}");
             return new ListTile(
@@ -93,20 +126,21 @@ namespace Unitter
                             onPressed: () => 
                             {
                                 brokerModel.remove(topicModel.topic);
-                                dispatcher.dispatch(new BaseReducer());
+                                dispatcher.dispatch(brokerModel);
                             }),
                         new Switch(
                             value: topicModel.connected.isNotEmpty(),
                             onChanged: (newValue) =>
                             {
-                                Debug.Log($"in topic switch {newValue}");
-                                topicModel.stateSwitch();
-                                dispatcher.dispatch(new BaseReducer());
+                                dispatcher.dispatch((Action) delegate
+                                {
+                                    topicModel.stateSwitch();
+                                });
                             }),
                         new IconButton(
                             icon: new Icon(Icons.arrow_right),
                             onPressed: () => { Navigator.push(context, new MaterialPageRoute(
-                                (ctx) => new MsgWidget(brokerModel.host, topicModel.topic)
+                                (ctx) => new MsgWidget(brokerModel.name, topicModel.topic)
                             )); })
                     })
             );
@@ -115,11 +149,11 @@ namespace Unitter
 
     class DialogSubTopic : StatelessWidget
     {
-        private string host = null;
+        private string brokerName = null;
 
-        public DialogSubTopic(string host, Key key = null) : base(key)
+        public DialogSubTopic(string brokerName, Key key = null) : base(key)
         {
-            this.host = host;
+            this.brokerName = brokerName;
         }
 
         public override Widget build(BuildContext context)
@@ -128,7 +162,7 @@ namespace Unitter
             // return new StoreProvider<GlobalState>(GlobalState.store(), GetWidget());
         }
 
-        Widget inputButton(BuildContext ctx, GlobalState globalState, Dispatcher dispatcher)
+        Widget inputButton(BuildContext ctx, BrokerModel brokerModel, Dispatcher dispatcher)
         {
             TextEditingController tec = new TextEditingController();
             return new Center(
@@ -150,7 +184,7 @@ namespace Unitter
                                 new GestureDetector(
                                     onTap: () =>
                                     {
-                                        if (tec.text.Length == 0)
+                                        if (tec.text.Trim().Length == 0)
                                         {
                                             DialogUtils.showDialog(context: ctx, true,
                                                 (context) =>
@@ -158,10 +192,10 @@ namespace Unitter
                                         }
                                         else
                                         {
-                                            BrokerModel model = globalState.model.model(this.host);
-                                            model.add(new TopicModel(this.host, tec.text));
-                                            Debug.Log($"{model.allTopices.Count}, {tec.text}");
-                                            dispatcher.dispatch(new BaseReducer());
+                                            dispatcher.dispatch((Action) delegate 
+                                            {
+                                                brokerModel.add(new TopicModel(this.brokerName, tec.text));
+                                            });
                                             Navigator.pop(ctx);
                                         }
                                     },
@@ -177,10 +211,10 @@ namespace Unitter
 
         Widget GetWidget()
         {
-            var lv = new StoreConnector<GlobalState, GlobalState>(
+            var lv = new StoreConnector<GlobalState, BrokerModel>(
                 pure: true, // 这个参数不知道干嘛用的
-                converter: (state) => state,
-                builder: (ctx, globalState, dispatcher) => { return inputButton(ctx, globalState, dispatcher); }
+                converter: (state) => state.model.model(this.brokerName),
+                builder: (ctx, brokerModel, dispatcher) => { return inputButton(ctx, brokerModel, dispatcher); }
             );
 
             return lv;

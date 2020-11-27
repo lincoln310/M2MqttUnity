@@ -3,9 +3,14 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.Serialization;
+using System.Threading;
+using M2MqttUnity;
 using Microsoft.Win32;
 using Unity.UIWidgets;
+using Unity.UIWidgets.engine;
 using Unity.UIWidgets.foundation;
+using Unity.UIWidgets.material;
 using Unity.UIWidgets.Redux;
 using Unity.UIWidgets.widgets;
 using UnityEngine;
@@ -34,50 +39,13 @@ namespace Unitter
         public List<bool> connected { get; private set; } = new List<bool>();
         private MsgModel empty;
         public string topic { get; }
-        public string host { get; }
+        public string brokerName{ get; }
         private int maxCnt;
 
-        // public class BrokerReducer : BaseReducer
-        // {
-        //     protected string topic = null;
-        //     protected string host = null;
-        //
-        //     public BrokerReducer(string host, string topic)
-        //     {
-        //         this.host = host;
-        //         this.topic = topic;
-        //     }
-        // }
-        // public class AddReducer: BrokerReducer{
-        //     public AddReducer(string host, string topic) : base(host, topic)
-        //     {
-        //     }
-        //
-        //     public override GlobalState reduce(GlobalState state)
-        //     {
-        //         state.allBrokers[this.host].add(new TopicModel(this.host, this.topic));
-        //         return state;
-        //     }
-        //
-        // }
-        //
-        // public class RemoveReducer : BrokerReducer
-        // {
-        //     public RemoveReducer(string host, string topic) : base(host, topic)
-        //     {
-        //     }
-        //
-        //     public override GlobalState reduce(GlobalState state)
-        //     {
-        //         state.allBrokers[this.host].remove(this.topic);
-        //         return state;
-        //     }
-        //
-        // }
-        //
-        public TopicModel(string host, string topic, int maxCnt = 100)
+        
+        public TopicModel(string brokerName, string topic, int maxCnt = 100)
         {
-            this.host = host;
+            this.brokerName = brokerName;
             this.topic = topic;
             this.maxCnt = maxCnt;
             empty = new MsgModel(topic, "", "", "");
@@ -118,7 +86,9 @@ namespace Unitter
         public void add(MsgModel model)
         {
             this.msgModels.Add(model);
+            
             // notifyListeners();
+            // GlobalState.store.dispatcher.dispatch(new BaseReducer()); 
         }
 
         public void clear()
@@ -127,9 +97,9 @@ namespace Unitter
             // notifyListeners();
         }
         
-        public static TopicModel dummy(string host, string topic)
+        public static TopicModel dummy(string brokerName, string topic)
         {
-            TopicModel ret = new TopicModel(host, topic);
+            TopicModel ret = new TopicModel(brokerName, topic);
             var msgs = new List<MsgModel>()
             {
                 new MsgModel(
@@ -181,12 +151,93 @@ namespace Unitter
     
     public class BrokerModel 
     {
+        public class AddTopic : BaseAction
+        {
+            public string brokerName;
+            public TopicModel topicModel;
+
+            public override GlobalState Do(GlobalState state)
+            {
+                state.model.model(brokerName).add(topicModel);
+                return state;
+            }
+        }
+        class MqttClient : PureM2MqttUnityClient
+        {
+            private BrokerModel brokerModel;
+            public MqttClient(string host, int port, BrokerModel brokerModel)
+            {
+                base.brokerAddress = host;
+                base.brokerPort = port;
+                this.brokerModel = brokerModel;
+            }
+
+            public void Subscribe(string topic, int qos)
+            {
+                client.Subscribe(new string[]{topic}, new byte[]{(byte)qos});
+            }
+
+            public void Unsubscribe(string topic)
+            {
+                client.Unsubscribe(new string[] {topic});
+            }
+            
+            protected override void SubscribeTopics()
+            {
+                base.SubscribeTopics();
+                byte[] qoes = new byte[brokerModel.allTopices.Count];
+                for(int i=0; i<brokerModel.allTopices.Count; i++)
+                    qoes[i] = 0;
+                client.Subscribe(brokerModel.allTopices.Keys.ToArray(), qoes);
+            }
+
+            protected override void UnsubscribeTopics()
+            {
+                base.UnsubscribeTopics();
+                client.Unsubscribe(brokerModel.allTopices.Keys.ToArray());
+            }
+
+            protected override void DecodeMessage(string topic, byte[] message)
+            {
+                base.DecodeMessage(topic, message);
+                string msg = message.ToString();
+                MsgModel msgModel = new MsgModel(topic, "C", DateTime.Now.ToLocalTime().ToShortTimeString(), msg);
+                brokerModel.addMsg(brokerModel.name, topic, msgModel);
+            }
+        }
+
+        private MqttClient mqttClient;
+        public BrokerModel(string host, string name = null)
+        {
+            this.host = host;
+            if (null == name || name.Trim().Length == 0)
+                this.name = host;
+            else
+                this.name = name;
+            
+            int portIdx = host.IndexOf(':');
+            Debug.Log($"{host}, {portIdx}");
+            
+            
+            string brokerAddress = host.Substring(0, portIdx);
+            int brokerPort = Int32.Parse(host.Substring(portIdx+1));
+            
+            mqttClient = new MqttClient(brokerAddress, brokerPort, this);
+            
+            mqttClient.ConnectionSucceeded += () => { this.connected = true; };
+            mqttClient.ConnectionFailed += () => { this.connected = false; };
+        } 
         // DataTable msgs = new DataTable();
         public string host { get; }
-        public List<bool> connected { get; private set; } = new List<bool>();
+        public string name { get; }
+
+        // public PureM2MqttUnityClient mqttClient;
+        public bool connected { get; private set; } = false;
         
         public Dictionary<string, TopicModel> allTopices = new Dictionary<string, TopicModel>();
 
+        public BuildContext ctx { get; set; } = null;
+        
         public TopicModel GetTopicModelByIdx(int idx)
         {
             if (allTopices.Count <= idx)
@@ -196,51 +247,62 @@ namespace Unitter
         public void add(TopicModel model)
         {
             this.allTopices.Add(model.topic, model);
+            if(this.connected)
+                mqttClient.Subscribe(model.topic, 0);
             // notifyListeners();
         }
 
+
         public void stateSwitch()
         {
-            if(this.connected.isEmpty())
-                this.connected.Add(true);
+            if(!this.connected)
+                mqttClient.Connect();
             else
-                this.connected.Clear();
-            
-            Debug.Log($"broker state: {connected.Count}");
+                mqttClient.Disconnect();
+            Debug.Log($"broker state: {connected}");
         }
 
         public void remove(string topic)
         {
             this.allTopices.Remove(topic);
-            // notifyListeners();
+            if(this.connected)
+                mqttClient.Unsubscribe(topic);
         }
+        
 
-        public void addMsg(string host, string topic, MsgModel msgModel)
+        public void addMsg(string brokerName, string topic, MsgModel msgModel)
         {
             if (!this.allTopices.ContainsKey(topic))
-                this.add(new TopicModel(host, topic));
+                this.add(new TopicModel(brokerName, topic));
             TopicModel topicModel = this.allTopices[topic];
             topicModel.add(msgModel);
-            // notifyListeners();
+            // if (ctx != null)
+            // {
+            //     using (WindowProvider.of(ctx).getScope()) {
+            //         // code dealing with UIWidgets,
+            //         // e.g. setState(() => {....})
+            //         
+            //         GlobalState.store.dispatcher.dispatch<TopicModel>((Action) delegate
+            //         {
+            //             this.allTopices[topic] = topicModel;
+            //         });
+            //     }
+            // }
         }
 
-        public BrokerModel(string host)
+        public static BrokerModel dummy(string host, string brokerName)
         {
-            this.host = host;
-        }
-
-        public static BrokerModel dummy(string host)
-        {
-            BrokerModel ret = new BrokerModel(host);
-            ret.add(TopicModel.dummy(host, "testTopic1"));
-            ret.add(TopicModel.dummy(host, "testTopic2"));
+            BrokerModel ret = new BrokerModel(host, brokerName);
+            ret.add(TopicModel.dummy(brokerName, "testTopic1"));
+            ret.add(TopicModel.dummy(brokerName, "testTopic2"));
             return ret;
         }
     }
 
 
 
-    public class MqttModel
+    [Serializable]
+    public class MqttModel 
     {
         protected Dictionary<string, BrokerModel> allBrokers = new Dictionary<string, BrokerModel>();
 
@@ -251,7 +313,7 @@ namespace Unitter
 
         public void add(BrokerModel model)
         {
-            this.allBrokers[model.host] = model;
+            this.allBrokers[model.name] = model;
         }
 
         public void remove(string modelName)
@@ -261,6 +323,7 @@ namespace Unitter
 
         public BrokerModel model(string modelName)
         {
+            Debug.Log(modelName);
             return this.allBrokers[modelName];
         }
         public BrokerModel GetBrokerModelByIdx(int idx)
@@ -275,43 +338,11 @@ namespace Unitter
             MqttModel ret = new MqttModel();
             ret.allBrokers = new Dictionary<string, BrokerModel>()
             {
-                {"testHost1", BrokerModel.dummy("testHost1")},
-                {"testHost2", BrokerModel.dummy("testHost2")}
+                {"broker1", BrokerModel.dummy("mqtt.locawave.com:5683", "broker1")},
+                {"broker2", BrokerModel.dummy("testHost2:1883", "broker2")}
             };
             return ret;
         }
-    }
-
-    public class GlobalState
-    {
-        public MqttModel model { get; }
-        public GlobalState(MqttModel model)
-        {
-            this.model = model;
-            Debug.Log("new state");
-        }
-        
-        public static Store<GlobalState> store()
-        {
-            return new Store<GlobalState>(
-                reducer: Reducer,
-                initialState: new GlobalState(MqttModel.dummy())
-            );
-        }
-
-        public static GlobalState Reducer(GlobalState state, object action)
-        {
-            var baseReducer = action as BaseReducer;
-            return baseReducer.reduce(state);
-        }
-    }
-    public class BaseReducer
-    {
-        virtual public GlobalState reduce(GlobalState state)
-        {
-            return state;
-        }
-
     }
 
 }

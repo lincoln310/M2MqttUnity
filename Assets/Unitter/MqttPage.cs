@@ -20,7 +20,6 @@ namespace Unitter
 {
     public class MqttPage : UIWidgetsPanel
     {
-        private M2MqttUnityClient mqttClient;
         
         protected override void OnEnable()
         {
@@ -33,7 +32,7 @@ namespace Unitter
         protected override Widget createWidget()
         {
             return new StoreProvider<GlobalState>(
-                store: GlobalState.store(),
+                store: GlobalState.store,
                 child: new WidgetsApp(
                     home: new BrokerPage(),
                     pageRouteBuilder: (RouteSettings settings, WidgetBuilder builder) =>

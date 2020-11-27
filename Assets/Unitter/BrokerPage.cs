@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UIWidgetsGallery.gallery;
@@ -68,12 +69,12 @@ namespace Unitter
 
         ListTile list(BuildContext context, MqttModel mqttModel, BrokerModel brokerModel, Dispatcher dispatcher)
         {
-            string l = brokerModel.host[0].ToString().ToUpper();
-            Debug.Log($"in host list,  {brokerModel.host}, {mqttModel.count()}");
+            string l = brokerModel.name[0].ToString().ToUpper();
+            Debug.Log($"in host list, {brokerModel.name}, {brokerModel.host}, {mqttModel.count()}");
             return new ListTile(
-                title: new Text(brokerModel.host),
+                title: new Text(brokerModel.name),
                 leading: new CircleAvatar(child: new Text(l)),
-                subtitle: new Text(brokerModel.allTopices.Count.ToString()),
+                subtitle: new Text($"{brokerModel.host}  {brokerModel.allTopices.Count.ToString()}"),
                 trailing: new Row(
                     mainAxisSize: MainAxisSize.min,
                     children: new List<Widget>()
@@ -82,27 +83,20 @@ namespace Unitter
                             icon: new Icon(Icons.delete),
                             onPressed: () =>
                             {
-                                mqttModel.remove(brokerModel.host);
-                                dispatcher.dispatch(new BaseReducer());
-                            }
-                            ),
-                        new Switch(
-                            value: brokerModel.connected.isNotEmpty(),
-                            onChanged: (newValue) =>
-                            {
-                                Debug.Log($"in broker switch {newValue}");
-                                brokerModel.stateSwitch();
-                                dispatcher.dispatch(new BaseReducer());
+                                dispatcher.dispatch((Action) delegate{
+                                    mqttModel.remove(brokerModel.name);
+                                });
                             }),
+                        TopicPage.TurnOnOff(brokerModel, dispatcher),
                         new IconButton(
                             icon: new Icon(Icons.arrow_right),
                             onPressed: () => { Navigator.push(context, new MaterialPageRoute(
-                                (ctx) => new TopicPage(brokerModel.host)
+                                (ctx) => new TopicPage(brokerModel.name)
                                 )); })
                     }),
                 onTap: () =>
                 {
-                    AlertDialog dialog = new AlertDialog(title: new Text("host information"));
+                    AlertDialog dialog = new AlertDialog(title: new Text("broker information"));
                     DialogUtils.showDialog(context, true, (ctx) => dialog);
                 }
             );
@@ -123,46 +117,56 @@ namespace Unitter
 
         Widget inputButton(BuildContext ctx, MqttModel mqttModel, Dispatcher dispatcher)
         {
-            TextEditingController tec = new TextEditingController();
+            TextEditingController brokerHost = new TextEditingController();
+            TextEditingController brokerName = new TextEditingController();
             return new Center(
                 child: new Column(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: new List<Widget>()
                     {
                         new TextField(
-                            controller: tec,
+                            controller: brokerName,
                             autofocus: false,
                             decoration: new InputDecoration(
+                                labelText: "命名",
+                                hintText: "地址1",
+                                prefixIcon: new Icon(Icons.network_cell)
+                            )),
+                        new TextField(
+                            controller: brokerHost,
+                            autofocus: true,
+                            decoration: new InputDecoration(
                                 labelText: "mqtt服务器地址",
-                                hintText: "tcp://host:port",
+                                hintText: "host:port",
                                 prefixIcon: new Icon(Icons.network_cell)
                             )),
                         new Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: new List<Widget>()
                             {
-                                new GestureDetector(
-                                    onTap: () =>
+                                new IconButton(
+                                    icon: new Icon(Icons.done),
+                                    onPressed: () =>
                                     {
-                                        if (tec.text.Length == 0)
+                                        string host = brokerHost.text.Trim();
+                                        if (host.Length == 0 || host.Contains(":") != true)
                                         {
                                             DialogUtils.showDialog(context: ctx, true,
                                                 (context) =>
-                                                    new AlertDialog(title: new Text("no mqtt host input")));
+                                                    new AlertDialog(title: new Text("服务器地址没有填写或者格式不对")));
                                         }
                                         else
                                         {
-                                            mqttModel.add(new BrokerModel(tec.text));
-                                            Debug.Log($"{mqttModel.count()}, {tec.text}");
-                                            dispatcher.dispatch(new BaseReducer());
+                                            dispatcher.dispatch((Action) delegate
+                                            {
+                                                mqttModel.add(new BrokerModel(brokerHost.text, brokerName.text));
+                                            });
                                             Navigator.pop(ctx);
                                         }
-                                    },
-                                    child: new Text("添加")
-                                ),
-                                new GestureDetector(
-                                    onTap: () => { Navigator.pop(ctx); },
-                                    child: new Text("取消")
+                                    }),
+                                new IconButton(
+                                    icon: new Icon(Icons.cancel),
+                                    onPressed: () => { Navigator.pop(ctx); }
                                 ),
                             })
                     }));
