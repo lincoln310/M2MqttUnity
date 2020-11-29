@@ -177,11 +177,11 @@ namespace uPLibrary.Networking.M2Mqtt.Messages
             // topics list empty
             if ((this.topics == null) || (this.topics.Length == 0))
                 throw new MqttClientException(MqttClientErrorCode.TopicsEmpty);
-
+            
             // qos levels list empty
             if ((this.qosLevels == null) || (this.qosLevels.Length == 0))
                 throw new MqttClientException(MqttClientErrorCode.QosLevelsEmpty);
-
+            
             // topics and qos levels lists length don't match
             if (this.topics.Length != this.qosLevels.Length)
                 throw new MqttClientException(MqttClientErrorCode.TopicsQosLevelsNotMatch);
