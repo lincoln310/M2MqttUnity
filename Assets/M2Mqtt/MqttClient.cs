@@ -1861,9 +1861,9 @@ namespace uPLibrary.Networking.M2Mqtt
             int delta;
             bool msgReceivedProcessed = false;
 
-            try
+            while (this.isRunning)
             {
-                while (this.isRunning)
+                try
                 {
 #if (MF_FRAMEWORK_VERSION_V4_2 || MF_FRAMEWORK_VERSION_V4_3 || COMPACT_FRAMEWORK)
                     // wait on message queueud to inflight
@@ -2484,20 +2484,24 @@ namespace uPLibrary.Networking.M2Mqtt
                         }
                     }
                 }
-            }
-            catch (MqttCommunicationException e)
-            {
-                // possible exception on Send, I need to re-enqueue not sent message
-                if (msgContext != null)
-                    // re-enqueue message
-                    this.inflightQueue.Enqueue(msgContext);
+                catch (MqttCommunicationException e)
+                {
+                    // possible exception on Send, I need to re-enqueue not sent message
+                    if (msgContext != null)
+                        // re-enqueue message
+                        this.inflightQueue.Enqueue(msgContext);
 
 #if TRACE
-                MqttUtility.Trace.WriteLine(TraceLevel.Error, "Exception occurred: {0}", e.ToString());
+                    MqttUtility.Trace.WriteLine(TraceLevel.Error, "Exception occurred: {0}", e.ToString());
 #endif
 
-                // raise disconnection client event
-                this.OnConnectionClosing();
+                    // raise disconnection client event
+                    this.OnConnectionClosing();
+                }
+                catch (Exception e)
+                {
+                    MqttUtility.Trace.WriteLine(TraceLevel.Error, "Exception occurred: {0}", e.ToString());
+                }
             }
         }
 
