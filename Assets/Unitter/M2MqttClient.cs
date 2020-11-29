@@ -25,6 +25,8 @@ SOFTWARE.
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using Unitter;
 using UnityEngine;
 using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
@@ -65,15 +67,11 @@ namespace M2MqttUnity
         /// </summary>
         protected MqttClient client;
 
+        protected string clientId;
+        protected bool forceDisConn = false;
+        Dictionary<string, byte> topics = new Dictionary<string, byte>();
 
-        /// <summary>
-        /// Event fired when a connection is successfully established
-        /// </summary>
-        public event Action ConnectionSucceeded;
-        /// <summary>
-        /// Event fired when failing to connect
-        /// </summary>
-        public event Action ConnectionFailed;
+        Dictionary<int, string[]> msgId2Topics = new Dictionary<int, string[]>();
 
         /// <summary>
         /// Connect to the broker using current settings.
@@ -91,9 +89,16 @@ namespace M2MqttUnity
         /// </summary>
         public virtual void Disconnect()
         {
+            autoConnect = false;
+            forceDisConn = true;
             if (client != null)
             {
-                DoDisconnect();
+                if (client.IsConnected)
+                {
+                    UnsubscribeTopics(topics.Keys.ToArray());
+                    client.Disconnect();
+                }
+                client.MqttMsgPublishReceived -= OnMqttMessageReceived;
             }
         }
 
@@ -111,13 +116,7 @@ namespace M2MqttUnity
         protected virtual void OnConnected()
         {
             Debug.LogFormat("Connected to {0}:{1}...\n", brokerAddress, brokerPort.ToString());
-
-            SubscribeTopics();
-
-            if (ConnectionSucceeded != null)
-            {
-                ConnectionSucceeded();
-            }
+            SubscribeTopics(topics.Keys.ToArray(), topics.Values.ToArray());
         }
 
         /// <summary>
@@ -126,24 +125,38 @@ namespace M2MqttUnity
         protected virtual void OnConnectionFailed(string errorMessage)
         {
             Debug.LogWarning("Connection failed.");
-            if (ConnectionFailed != null)
-            {
-                ConnectionFailed();
-            }
         }
 
         /// <summary>
         /// Override this method to subscribe to MQTT topics.
         /// </summary>
-        protected virtual void SubscribeTopics()
+        public void registTopic(string topic, byte qos)
         {
+            topics[topic] = qos;
+            if(client != null && client.IsConnected)
+                SubscribeTopics(new string[]{topic}, new byte[]{qos});
+        }
+
+        public void unregistTopic(string topic)
+        {
+            topics.Remove(topic);
+            if(client != null && client.IsConnected)
+                UnsubscribeTopics(new string[]{topic});
+        }
+
+        void SubscribeTopics(string[] topics, byte[] qoes)
+        {
+            int msgId = client.Subscribe(topics, qoes);
+            msgId2Topics[msgId] = topics;
         }
 
         /// <summary>
         /// Override this method to unsubscribe to MQTT topics (they should be the same you subscribed to with SubscribeTopics() ).
         /// </summary>
-        protected virtual void UnsubscribeTopics()
+        void UnsubscribeTopics(string[] topics)
         {
+            int msgId = client.Unsubscribe(topics);
+            msgId2Topics[msgId] = topics;
         }
 
         /// <summary>
@@ -162,12 +175,24 @@ namespace M2MqttUnity
             Debug.Log("Disconnected.");
         }
 
-        /// <summary>
-        /// Override this method to take some actions when the connection is closed.
-        /// </summary>
-        protected virtual void OnConnectionLost()
+        private void OnTopicSubed(object sender, MqttMsgSubscribedEventArgs e)
         {
-            Debug.LogWarning("CONNECTION LOST!");
+            string[] topics = msgId2Topics[e.MessageId];
+            Debug.Log($"topic subed: {string.Join(";", topics)}");
+            msgId2Topics.Remove(e.MessageId);
+            OnTopicStateChange(topics, true);
+        }
+        
+        private void OnTopicUnsubed(object sender, MqttMsgUnsubscribedEventArgs e)
+        {
+            string[] topics = msgId2Topics[e.MessageId];
+            Debug.Log($"topic unsubed: {string.Join(";", topics)}");
+            msgId2Topics.Remove(e.MessageId);
+            OnTopicStateChange(topics, false);
+        }
+
+        protected virtual void OnTopicStateChange(string[] topics, bool subed)
+        {
         }
 
         private void OnMqttMessageReceived(object sender, MqttMsgPublishEventArgs msg)
@@ -177,10 +202,18 @@ namespace M2MqttUnity
 
         private void OnMqttConnectionClosed(object sender, EventArgs e)
         {
-            if (autoReconn)
+            if (forceDisConn && autoReconn)
             {
+                client.ConnectionClosed -= OnMqttConnectionClosed;
+                client = null;
+                OnDisconnected();
+            }
+            else
+            {
+                Debug.Log("Connect lost, trying to reconnect.");
                 DoConnect();
             }
+
             // Set unexpected connection closed only if connected (avoid event handling in case of controlled disconnection)
         }
 
@@ -191,92 +224,39 @@ namespace M2MqttUnity
         private void DoConnect()
         {
             // create client instance 
-            if (client == null)
-            {
-                try
-                {
-#if (!UNITY_EDITOR && UNITY_WSA_10_0 && !ENABLE_IL2CPP)
-                    client = new MqttClient(brokerAddress,brokerPort,isEncrypted, isEncrypted ? MqttSslProtocols.SSLv3 : MqttSslProtocols.None);
-#else
-                    client = new MqttClient(brokerAddress, brokerPort, isEncrypted, null, null, isEncrypted ? MqttSslProtocols.SSLv3 : MqttSslProtocols.None);
-                    //System.Security.Cryptography.X509Certificates.X509Certificate cert = new System.Security.Cryptography.X509Certificates.X509Certificate();
-                    //client = new MqttClient(brokerAddress, brokerPort, isEncrypted, cert, null, MqttSslProtocols.TLSv1_0, MyRemoteCertificateValidationCallback);
-#endif
-                }
-                catch (Exception e)
-                {
-                    client = null;
-                    Debug.LogErrorFormat("CONNECTION FAILED! {0}", e.ToString());
-                    OnConnectionFailed(e.Message);
-                    return ;
-                }
-            }
-            else if (client.IsConnected)
-            {
+            if (client != null && client.IsConnected)
                 return ;
-            }
-            OnConnecting();
-
-            client.Settings.TimeoutOnConnection = timeoutOnConnection;
-            string clientId = Guid.NewGuid().ToString();
             try
             {
-                client.Connect(clientId, mqttUserName, mqttPassword);
-                if (client.IsConnected)
+                if (client == null)
                 {
+                    client = new MqttClient(brokerAddress, brokerPort, isEncrypted, null, null, isEncrypted ? MqttSslProtocols.SSLv3 : MqttSslProtocols.None);
                     client.ConnectionClosed += OnMqttConnectionClosed;
+                    client.MqttMsgSubscribed += OnTopicSubed;
+                    client.MqttMsgUnsubscribed += OnTopicUnsubed;
                     // register to message received 
                     client.MqttMsgPublishReceived += OnMqttMessageReceived;
+                    //System.Security.Cryptography.X509Certificates.X509Certificate cert = new System.Security.Cryptography.X509Certificates.X509Certificate();
+                    //client = new MqttClient(brokerAddress, brokerPort, isEncrypted, cert, null, MqttSslProtocols.TLSv1_0, MyRemoteCertificateValidationCallback);
+                    client.Settings.TimeoutOnConnection = timeoutOnConnection;
+                }
+                if (this.clientId == null)
+                    this.clientId = Guid.NewGuid().ToString();
+                client.Connect(this.clientId, mqttUserName, mqttPassword);
+                if (client.IsConnected)
                     OnConnected();
-                }
                 else
-                {
-                    OnConnectionFailed("CONNECTION FAILED!");
-                }
+                    OnConnectionFailed("CONNECTION FAILED!"); 
             }
             catch (Exception e)
             {
                 client = null;
                 Debug.LogErrorFormat("Failed to connect to {0}:{1}:\n{2}", brokerAddress, brokerPort, e.ToString());
                 OnConnectionFailed(e.Message);
+                return ;
             }
+            OnConnecting();
         }
 
-        private void DoDisconnect()
-        {
-            CloseConnection();
-            OnDisconnected();
-        }
-
-        private void CloseConnection()
-        {
-            if (client != null)
-            {
-                client.ConnectionClosed -= OnMqttConnectionClosed;
-                if (client.IsConnected)
-                {
-                    UnsubscribeTopics();
-                    client.Disconnect();
-                }
-                client.MqttMsgPublishReceived -= OnMqttMessageReceived;
-                client = null;
-            }
-        }
-
-#if ((!UNITY_EDITOR && UNITY_WSA_10_0))
-        private void OnApplicationFocus(bool focus)
-        {
-            // On UWP 10 (HoloLens) we cannot tell whether the application actually got closed or just minimized.
-            // (https://forum.unity.com/threads/onapplicationquit-and-ondestroy-are-not-called-on-uwp-10.462597/)
-            if (focus)
-            {
-                Connect();
-            }
-            else
-            {
-                CloseConnection();
-            }
-        }
-#endif
     }
 }

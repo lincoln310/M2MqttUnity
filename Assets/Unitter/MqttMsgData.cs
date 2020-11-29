@@ -15,6 +15,7 @@ using Unity.UIWidgets.material;
 using Unity.UIWidgets.Redux;
 using Unity.UIWidgets.widgets;
 using UnityEngine;
+using UnityEngine.Networking;
 using uPLibrary.Networking.M2Mqtt.Messages;
 using Component = UnityEngine.Component;
 
@@ -57,8 +58,14 @@ namespace Unitter
 
         public void stateSwitch(bool todo)
         {
-            this.connected = todo;
             Debug.Log($"topic state: {connected}");
+            BrokerModel brokerModel = GlobalState.store.getState().mqttModel.model(brokerName);
+            if(brokerModel == null)
+                return;
+            if (todo)
+                brokerModel.registTopic(topic, 0);
+            else
+                brokerModel.unregistTopic(topic);
         }
 
         public MsgModel latest()
@@ -137,107 +144,118 @@ namespace Unitter
         }
     }
 
-    class MqttClient : M2MqttUnityClient
+    // class MqttClient : M2MqttClient
+    // {
+    //     public BrokerModel brokerModel;
+    //
+    //     public void init(string host, int port, BrokerModel brokerModel)
+    //     {
+    //         base.brokerAddress = host;
+    //         base.brokerPort = port;
+    //         this.brokerModel = brokerModel;
+    //     }
+    //
+    //     protected override void DecodeMessage(string topic, byte[] message)
+    //     {
+    //         base.DecodeMessage(topic, message);
+    //         if (brokerModel == null)
+    //             return;
+    //         string msg = System.Text.Encoding.Default.GetString(message);
+    //         MsgModel msgModel = new MsgModel(topic, "C", DateTime.Now.ToLocalTime().ToShortTimeString(), msg);
+    //         brokerModel.addMsg(brokerModel.name, topic, msgModel);
+    //         GlobalState.changed = true;
+    //         // GlobalState.store.dispatcher.dispatch<TopicModel>((GlobalState.DlgAction) delegate { return GlobalState.store.getState(); });
+    //     }
+    //
+    //     protected override void OnConnected()
+    //     {
+    //         base.OnConnected();
+    //         if (brokerModel != null)
+    //             brokerModel.connected = true;
+    //         else
+    //             Debug.Log("no broker find");
+    //                 
+    //         GlobalState.changed = true;
+    //     }
+    //
+    //     protected override void OnConnectionFailed(string errorMessage)
+    //     {
+    //         base.OnConnectionFailed(errorMessage);
+    //         
+    //         if (brokerModel != null)
+    //             brokerModel.connected = false;
+    //         else
+    //             Debug.Log("no broker find");
+    //         GlobalState.changed = true;
+    //     }
+    //
+    //     protected override void OnTopicStateChange(string[] topics, bool subed)
+    //     {
+    //         base.OnTopicStateChange(topics, subed);
+    //     }
+    //
+    //     public static MqttClient getMqttClient(BrokerModel model)
+    //     {
+    //         List<MqttClient> clients = Component.FindObjectsOfType<MqttClient>().ToList();
+    //         MqttClient client = clients.Find(x => x.brokerModel.name == model.name);
+    //         if (client == null)
+    //         {
+    //             int portIdx = model.host.IndexOf(':');
+    //             Debug.Log($"create mqtt client: {model.host}, {portIdx}");
+    //             string brokerAddress = model.host.Substring(0, portIdx);
+    //             int brokerPort = Int32.Parse(model.host.Substring(portIdx + 1));
+    //             
+    //             GameObject owner = GameObject.Find("PanelCfg");
+    //             client = owner.AddComponent<MqttClient>();
+    //             // client.name = name;
+    //             client.init(brokerAddress, brokerPort, model);
+    //             Debug.Log("broker mqttClient inited");
+    //         }
+    //
+    //         return client;
+    //     }
+    // }
+    
+    public class BrokerModel : M2MqttClient
     {
-        public BrokerModel brokerModel;
-
-        public void init(string host, int port, BrokerModel brokerModel)
+        //M2MqttClient
+        public void initMqttClient(string host, int port)
         {
             base.brokerAddress = host;
             base.brokerPort = port;
-            this.brokerModel = brokerModel;
-            
-            base.ConnectionSucceeded += onConnSuc;
-            base.ConnectionFailed += onConnBreak;
         }
-
-        public void Subscribe(string topic, int qos)
-        {
-            client.Subscribe(new string[] {topic}, new byte[] {(byte) qos});
-        }
-
-        public void Unsubscribe(string topic)
-        {
-            client.Unsubscribe(new string[] {topic});
-        }
-
-        protected override void SubscribeTopics()
-        {
-            if (brokerModel == null)
-            {
-                Debug.Log("no broker found");
-                return;
-            }
-
-            byte[] qoes = new byte[brokerModel.allTopices.Count];
-            for (int i = 0; i < brokerModel.allTopices.Count; i++)
-                qoes[i] = MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE;
-            client.Subscribe(brokerModel.allTopices.Keys.ToArray(), qoes);
-        }
-
-        protected override void UnsubscribeTopics()
-        {
-            if (brokerModel == null)
-                return;
-            client.Unsubscribe(brokerModel.allTopices.Keys.ToArray());
-        }
-        
         protected override void DecodeMessage(string topic, byte[] message)
         {
             base.DecodeMessage(topic, message);
-            if (brokerModel == null)
-                return;
             string msg = System.Text.Encoding.Default.GetString(message);
             MsgModel msgModel = new MsgModel(topic, "C", DateTime.Now.ToLocalTime().ToShortTimeString(), msg);
-            brokerModel.addMsg(brokerModel.name, topic, msgModel);
+            addMsg(name, topic, msgModel);
             GlobalState.changed = true;
             // GlobalState.store.dispatcher.dispatch<TopicModel>((GlobalState.DlgAction) delegate { return GlobalState.store.getState(); });
         }
 
-        void onConnSuc()
+        protected override void OnConnected()
         {
-            Debug.Log("on conn suc: ${name}");
-            if (brokerModel != null)
-                brokerModel.connected = true;
-            else
-                Debug.Log("no broker find");
-                    
+            base.OnConnected();
+            connected = true;
             GlobalState.changed = true;
         }
 
-        void onConnBreak()
+        protected override void OnConnectionFailed(string errorMessage)
         {
-            if (brokerModel != null)
-                brokerModel.connected = false;
-            else
-                Debug.Log("no broker find");
+            base.OnConnectionFailed(errorMessage);
+            connected = false;
             GlobalState.changed = true;
         }
-        
-        public static MqttClient getMqttClient(BrokerModel model)
-        {
-            List<MqttClient> clients = Component.FindObjectsOfType<MqttClient>().ToList();
-            MqttClient client = clients.Find(x => x.brokerModel.name == model.name);
-            if (client == null)
-            {
-                int portIdx = model.host.IndexOf(':');
-                Debug.Log($"create mqtt client: {model.host}, {portIdx}");
-                string brokerAddress = model.host.Substring(0, portIdx);
-                int brokerPort = Int32.Parse(model.host.Substring(portIdx + 1));
-                
-                GameObject owner = GameObject.Find("PanelCfg");
-                client = owner.AddComponent<MqttClient>();
-                // client.name = name;
-                client.init(brokerAddress, brokerPort, model);
-                Debug.Log("broker mqttClient inited");
-            }
 
-            return client;
+        protected override void OnTopicStateChange(string[] topics, bool subed)
+        {
+            base.OnTopicStateChange(topics, subed);
+            foreach (var topic in topics)
+                allTopices[topic].connected = subed;
+            GlobalState.changed = true;
         }
-    }
-    
-    public class BrokerModel
-    {
+
         public class AddTopic : BaseAction
         {
             public string brokerName;
@@ -250,15 +268,6 @@ namespace Unitter
             }
         }
 
-        private MqttClient mqttClient;
-
-        MqttClient getMqttClient()
-        {
-            if (mqttClient == null)
-                mqttClient = MqttClient.getMqttClient(this);
-            return mqttClient;
-        }
-
         public BrokerModel(string host, string name = null)
         {
             this.host = host;
@@ -266,6 +275,15 @@ namespace Unitter
                 this.name = host;
             else
                 this.name = name;
+            
+            int portIdx = host.IndexOf(':');
+            Debug.Log($"create mqtt client: {host}, {portIdx}");
+            string brokerAddress = host.Substring(0, portIdx);
+            int brokerPort = Int32.Parse(host.Substring(portIdx + 1));
+                
+            // client.name = name;
+            initMqttClient(brokerAddress, brokerPort);
+            Debug.Log("broker mqttClient inited");
         }
 
         // DataTable msgs = new DataTable();
@@ -289,19 +307,14 @@ namespace Unitter
         public void add(TopicModel model)
         {
             this.allTopices.Add(model.topic, model);
-            Debug.Log($"{model.brokerName} add topic {model.brokerName}");
-            if (this.connected)
-                getMqttClient().Subscribe(model.topic, MqttMsgBase.QOS_LEVEL_AT_MOST_ONCE);
-            // notifyListeners();
         }
-
 
         public void stateSwitch(bool todo)
         {
             if (todo)
-                getMqttClient().Connect();
+                base.Connect();
             else
-                getMqttClient().Disconnect();
+                base.Disconnect();
             Debug.Log($"broker state: {connected}");
         }
 
@@ -309,14 +322,19 @@ namespace Unitter
         {
             this.allTopices.Remove(topic);
             if (this.connected)
-                getMqttClient().Unsubscribe(topic);
+                base.unregistTopic(topic);
         }
 
 
         public void addMsg(string brokerName, string topic, MsgModel msgModel)
         {
             if (!this.allTopices.ContainsKey(topic))
-                this.add(new TopicModel(brokerName, topic));
+            {
+                TopicModel model = new TopicModel(brokerName, topic);
+                model.connected = true;
+                base.registTopic(topic, 0);
+                this.add(model);
+            }
             TopicModel topicModel = this.allTopices[topic];
             topicModel.add(msgModel);
         }

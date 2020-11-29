@@ -85,13 +85,7 @@ namespace Unitter
                             }),
                         new Switch(
                             value: topicModel.connected,
-                            onChanged: (newValue) =>
-                            {
-                                dispatcher.dispatch((Action) delegate
-                                {
-                                    topicModel.stateSwitch(!topicModel.connected);
-                                });
-                            }),
+                            onChanged: (newValue) => topicModel.stateSwitch(!topicModel.connected)),
                         new IconButton(
                             icon: new Icon(Icons.arrow_right),
                             onPressed: () => { Navigator.push(context, new MaterialPageRoute(
@@ -104,7 +98,7 @@ namespace Unitter
         {
             return new Switch(
                 value: brokerModel.connected,
-                onChanged: (newValue) => { brokerModel.stateSwitch(!brokerModel.connected); });
+                onChanged: (newValue) => brokerModel.stateSwitch(!brokerModel.connected));
         }
     }
 
@@ -145,8 +139,9 @@ namespace Unitter
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: new List<Widget>()
                             {
-                                new GestureDetector(
-                                    onTap: () =>
+                                new IconButton(
+                                    icon: new Icon(Icons.add),
+                                    onPressed: () => 
                                     {
                                         if (tec.text.Trim().Length == 0)
                                         {
@@ -162,13 +157,12 @@ namespace Unitter
                                             });
                                             Navigator.pop(ctx);
                                         }
-                                    },
-                                    child: new Text("订阅")
+                                    }
                                 ),
-                                new GestureDetector(
-                                    onTap: () => { Navigator.pop(ctx); },
-                                    child: new Text("取消")
-                                ),
+                                new IconButton(
+                                    icon: new Icon(Icons.cancel),
+                                    onPressed: () => Navigator.pop(ctx)
+                                    )
                             })
                     }));
         }
