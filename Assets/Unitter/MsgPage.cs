@@ -71,7 +71,7 @@ namespace Unitter
                 leading: new CircleAvatar(
                     child: new Text(l)
                 ),
-                title: new Text($"{_model.clientId}, {_model.datetime}"),
+                title: new Text($"{_model.topic}, {_model.datetime}"),
                 subtitle: new Text(_model.message)
             );
         }

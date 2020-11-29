@@ -25,6 +25,7 @@ namespace Unitter
     {
         public string clientId { get; }
         public string topic { get; }
+        
         public string datetime { get; }
         public string message { get; }
 
@@ -328,15 +329,28 @@ namespace Unitter
 
         public void addMsg(string brokerName, string topic, MsgModel msgModel)
         {
-            if (!this.allTopices.ContainsKey(topic))
+            bool added = false;
+            foreach (var pair in allTopices)
             {
-                TopicModel model = new TopicModel(brokerName, topic);
-                model.connected = true;
-                base.registTopic(topic, 0);
-                this.add(model);
+                if (M2MqttClient.isMatch(topic, pair.Key))
+                {
+                    pair.Value.add(msgModel);
+                    added = true;
+                }
             }
-            TopicModel topicModel = this.allTopices[topic];
-            topicModel.add(msgModel);
+
+            if (!added)
+            {
+                if (!this.allTopices.ContainsKey(topic))
+                {
+                    TopicModel model = new TopicModel(brokerName, topic);
+                    model.connected = true;
+                    base.registTopic(topic, 0);
+                    this.add(model);
+                }
+                TopicModel topicModel = this.allTopices[topic];
+                topicModel.add(msgModel);
+            }
         }
 
         public static BrokerModel dummy(string host, string brokerName)
