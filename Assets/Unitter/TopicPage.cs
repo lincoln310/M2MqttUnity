@@ -86,6 +86,14 @@ namespace Unitter
                         new Switch(
                             value: topicModel.connected,
                             onChanged: (newValue) => topicModel.stateSwitch(!topicModel.connected)),
+                        new FlatButton(
+                            child: new Text("清空"),
+                            onPressed: () =>
+                            {
+                                topicModel.clear();
+                                dispatcher.dispatch(topicModel);
+                            }
+                        ),
                         new IconButton(
                             icon: new Icon(Icons.arrow_right),
                             onPressed: () => { Navigator.push(context, new MaterialPageRoute(

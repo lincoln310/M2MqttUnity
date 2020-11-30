@@ -42,8 +42,11 @@ namespace Unitter
                             ),
                             actions: new List<Widget>()
                             {
-                                new IconButton(
-                                    icon: new Icon(Icons.delete),
+                                new Switch(
+                                    value: topicModel.connected,
+                                    onChanged: (newValue) => topicModel.stateSwitch(!topicModel.connected)),
+                                new FlatButton(
+                                    child: new Text("清空"),
                                     onPressed: () =>
                                     {
                                         topicModel.clear();
