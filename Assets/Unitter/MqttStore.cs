@@ -1,5 +1,7 @@
 using System;
-using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using FullSerializer;
 using Unity.UIWidgets;
 using Unity.UIWidgets.Redux;
 using Unity.UIWidgets.widgets;
@@ -19,12 +21,69 @@ namespace Unitter
         }
 
         public static bool changed { get; set; } = false;
+        static readonly string config = $"config.json";
+        static readonly fsSerializer _serializer = new fsSerializer();
         
         public static Store<GlobalState> store = new Store<GlobalState>(
             reducer: Reducer,
-            initialState: new GlobalState(MqttModel.dummy()),
+            initialState: new GlobalState(load()),
             ReduxLogging.create<GlobalState>()
         );
+
+        public void save()
+        {
+            GlobalState.save(this.mqttModel);
+        }
+        static void save(MqttModel model)
+        {
+            try
+            {
+                fsData data;
+                _serializer.TrySerialize(typeof(MqttModel), model, out data).AssertSuccessWithoutWarnings();
+
+                // emit the data via JSON
+                string json = fsJsonPrinter.CompressedJson(data);
+                File.WriteAllBytes(config, Encoding.UTF8.GetBytes(json));
+                Debug.Log($"write model to : {config}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError(e.Message);
+            }
+        }
+
+        static MqttModel load()
+        {
+            Debug.Log($"config : {config}");
+            string json = "";
+            if (File.Exists(config))
+            {
+                byte[] all = File.ReadAllBytes(config);
+                json = Encoding.UTF8.GetString(all);
+            }
+
+            MqttModel model = new MqttModel();
+            if (json.Trim().Length != 0)
+            {
+                try
+                {
+                    // step 1: parse the JSON data
+                    fsData data = fsJsonParser.Parse(json);
+
+                    // step 2: deserialize the data
+                    object deserialized = null;
+                    _serializer.TryDeserialize(data, typeof(MqttModel), ref deserialized).AssertSuccessWithoutWarnings();
+
+                    model = deserialized as MqttModel;
+                    // model = JsonConvert.DeserializeObject(json) as MqttModel;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError(e.Message);
+                }
+            }
+            return model;
+        }
 
         public delegate GlobalState DlgAction(GlobalState obj);
         public static GlobalState Reducer(GlobalState state, object action)
@@ -47,7 +106,7 @@ namespace Unitter
                 return state;
             }
             else
-                return null;
+                return state;
         }
     }
     public abstract class BaseAction

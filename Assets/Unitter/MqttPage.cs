@@ -50,7 +50,7 @@ namespace Unitter
             {
                 Debug.Log("changed backGround");
                 GlobalState.changed = false;
-                GlobalState.store.dispatcher.dispatch<TopicModel>((GlobalState.DlgAction) delegate { return GlobalState.store.getState(); });
+                GlobalState.store.dispatcher.dispatch(GlobalState.store);
             }
         }
     }

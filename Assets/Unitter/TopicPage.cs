@@ -105,8 +105,8 @@ namespace Unitter
         static public Widget TurnOnOff(BrokerModel brokerModel, Dispatcher dispatcher)
         {
             return new Switch(
-                value: brokerModel.connected,
-                onChanged: (newValue) => brokerModel.stateSwitch(!brokerModel.connected));
+                value: brokerModel.connected(),
+                onChanged: (newValue) => brokerModel.stateSwitch(!brokerModel.connected()));
         }
     }
 

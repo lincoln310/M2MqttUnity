@@ -27,7 +27,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Unitter;
+using Unity.UIWidgets.Redux;
 using UnityEngine;
 using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
@@ -66,14 +68,38 @@ namespace M2MqttUnity
         /// <summary>
         /// Wrapped MQTT client
         /// </summary>
+        [NonSerialized]
         protected MqttClient client;
 
         protected string clientId;
+        [NonSerialized]
         protected bool forceDisConn = false;
-        Dictionary<string, byte> topics = new Dictionary<string, byte>();
 
-        Dictionary<int, string[]> msgId2Topics = new Dictionary<int, string[]>();
+        Thread reconnThread = null;
 
+        private Dictionary<string, byte> topics
+        {
+            get
+            {
+                if(_topics == null)
+                    _topics = new Dictionary<string, byte>();
+                return _topics;
+            }
+        }
+
+        private Dictionary<int, string[]> msgId2Topics
+        {
+            get
+            {
+                if(_msgId2Topics == null)
+                    _msgId2Topics = new Dictionary<int, string[]>();
+                return _msgId2Topics;
+            }
+        }
+
+        private Dictionary<string, byte> _topics = null;
+        private Dictionary<int, string[]> _msgId2Topics = null;
+        
         /// <summary>
         /// Connect to the broker using current settings.
         /// </summary>
@@ -117,6 +143,8 @@ namespace M2MqttUnity
         protected virtual void OnConnected()
         {
             Debug.LogFormat("Connected to {0}:{1}...\n", brokerAddress, brokerPort.ToString());
+            if (reconnThread != null)
+                reconnThread = null;
             SubscribeTopics(topics.Keys.ToArray(), topics.Values.ToArray());
         }
 
@@ -201,6 +229,17 @@ namespace M2MqttUnity
             DecodeMessage(msg.Topic, msg.Message);
         }
 
+        private IEnumerable<WaitForSeconds> reconn()
+        {
+            while (client.IsConnected != true)
+            {
+                DoConnect();
+                yield return new WaitForSeconds(1);
+            }
+
+        }
+
+
         private void OnMqttConnectionClosed(object sender, EventArgs e)
         {
             if (forceDisConn && autoReconn)
@@ -212,7 +251,11 @@ namespace M2MqttUnity
             else
             {
                 Debug.Log("Connect lost, trying to reconnect.");
-                DoConnect();
+                if (reconnThread == null)
+                {
+                    reconnThread = new Thread(() => reconn());
+                    reconnThread.Start();
+                }
             }
 
             // Set unexpected connection closed only if connected (avoid event handling in case of controlled disconnection)
