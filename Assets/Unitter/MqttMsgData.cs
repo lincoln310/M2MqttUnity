@@ -8,18 +8,26 @@ namespace Unitter
 {
     public class MsgModel
     {
+        public enum MsgType : ushort
+        {
+            IN = 0,
+            OUT 
+        }
         public string clientId { get; }
         public string topic { get; }
 
         public string datetime { get; }
         public string message { get; }
+        
+        public MsgType msgType { get; }
 
-        public MsgModel(string topic, string clientId, string datetime, string msg)
+        public MsgModel(string topic, string clientId, string datetime, string msg, MsgType msgType = MsgType.IN)
         {
             this.topic = topic;
             this.clientId = clientId;
             this.datetime = datetime;
             this.message = msg;
+            this.msgType = msgType;
         }
     };
 
@@ -41,11 +49,23 @@ namespace Unitter
         private List<MsgModel> _msgModels = new List<MsgModel>();
         
         [NonSerialized] public bool connected = false;
-        [NonSerialized] private MsgModel empty;
+        private MsgModel empty;
+
+        private BrokerModel brokerModel
+        {
+            get
+            {
+                if (_brokerModel == null)
+                    _brokerModel = GlobalState.store.getState().mqttModel.model(brokerName);
+                return _brokerModel;
+            }
+            set { _brokerModel = value; }
+        }
 
         [SerializeField] public string topic = "";
         [SerializeField] public string brokerName = "";
         [SerializeField] private int maxCnt;
+        private BrokerModel _brokerModel;
 
         public TopicModel(string brokerName, string topic, int maxCnt = 100)
         {
@@ -58,9 +78,6 @@ namespace Unitter
         public void stateSwitch(bool todo)
         {
             Debug.Log($"topic state: {connected}");
-            BrokerModel brokerModel = GlobalState.store.getState().mqttModel.model(brokerName);
-            if (brokerModel == null)
-                return;
             if (todo)
                 brokerModel.registTopic(topic, 0);
             else
@@ -85,6 +102,11 @@ namespace Unitter
         public void add(MsgModel model)
         {
             this.msgModels.Add(model);
+            if (model.msgType == MsgModel.MsgType.OUT)
+            {
+                brokerModel.send(model.topic,
+                System.Text.Encoding.Default.GetBytes(model.message));
+            }
         }
 
         public void clear()
@@ -157,9 +179,8 @@ namespace Unitter
         {
             base.DecodeMessage(topic, message);
             string msg = System.Text.Encoding.Default.GetString(message);
-            MsgModel msgModel = new MsgModel(topic, "C", DateTime.Now.ToLocalTime().ToShortTimeString(), msg);
+            MsgModel msgModel = new MsgModel(topic, "recv", DateTime.Now.ToLocalTime().ToString(), msg);
             addMsg(name, topic, msgModel);
-            GlobalState.changed = true;
             // GlobalState.store.dispatcher.dispatch<TopicModel>((GlobalState.DlgAction) delegate { return GlobalState.store.getState(); });
         }
 
@@ -190,6 +211,11 @@ namespace Unitter
             foreach (var topic in topics)
                 allTopices[topic].connected = subed;
             GlobalState.changed = true;
+        }
+
+        public void send(string topic, byte[] msg)
+        {
+            client.Publish(topic, msg); 
         }
 
         public class AddTopic : BaseAction
@@ -301,6 +327,7 @@ namespace Unitter
                 TopicModel topicModel = this.allTopices[topic];
                 topicModel.add(msgModel);
             }
+            GlobalState.changed = true;
         }
 
         public static BrokerModel dummy(string host, string brokerName)
@@ -348,7 +375,6 @@ namespace Unitter
 
         public BrokerModel model(string modelName)
         {
-            Debug.Log(modelName);
             return this.allBrokers[modelName];
         }
 
