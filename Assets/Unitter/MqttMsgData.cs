@@ -107,6 +107,8 @@ namespace Unitter
                 brokerModel.send(model.topic,
                 System.Text.Encoding.Default.GetBytes(model.message));
             }
+
+            GlobalState.changed = true;
         }
 
         public void clear()
@@ -327,7 +329,6 @@ namespace Unitter
                 TopicModel topicModel = this.allTopices[topic];
                 topicModel.add(msgModel);
             }
-            GlobalState.changed = true;
         }
 
         public static BrokerModel dummy(string host, string brokerName)
