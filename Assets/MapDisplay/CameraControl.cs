@@ -29,17 +29,21 @@ public class CameraControl : MonoBehaviour {
         //获取地图尺寸
         sizeX = terrain.GetComponent<TerrainCollider>().bounds.size.x;
         sizeZ = terrain.GetComponent<TerrainCollider>().bounds.size.z;
+        Debug.Log(terrain.transform.localScale);
+        Debug.Log(terrain.transform.localPosition);
+        Debug.Log(terrain.transform.position);
         maxRangeX = terrain.transform.position.x + 1.25f * sizeX;
         minRangeX = terrain.transform.position.x + -0.25f * sizeX;
         maxRangeZ = terrain.transform.position.z + 1.25f * sizeZ;
         minRangeZ = terrain.transform.position.z + -0.25f * sizeZ;
         //设置摄像机位置
+        cameraPos = mainCamera.transform.position;
         cameraPos.x = terrain.transform.position.x +  sizeX/ 2 ;
         cameraPos.y = terrain.transform.position.y + height;
         cameraPos.z = terrain.transform.position.z +  sizeZ/ 2 ;
         Vector3 eulerAngles = new Vector3(rollAngle, 0, 0);
-        mainCamera.transform.position = cameraPos;
-        mainCamera.transform.eulerAngles = eulerAngles;
+        // mainCamera.transform.position = cameraPos;
+        // mainCamera.transform.eulerAngles = eulerAngles;
         maxRangeY = sizeX / 2;
         Debug.Log("地图尺寸为：" + sizeX + "X" + sizeZ);
         Debug.Log("当前位置" + cameraPos);
@@ -57,21 +61,23 @@ public class CameraControl : MonoBehaviour {
         mainCamera.transform.position = cameraPos;
     }
     void MoveCamera() {
+        
         //第一种方法按下WS、AD，Input.GetAxis()会返回1或-1
-        float moveZ = Input.GetAxis("Vertical");
         Vector3 moveDirectionZ = transform.forward;
         moveDirectionZ.y = 0;
-        cameraPos += moveDirectionZ * moveZ * moveSpeed;
-        float moveX = Input.GetAxis("Horizontal");
         Vector3 moveDirectionX = transform.right;
         moveDirectionZ.y = 0;
-        cameraPos += moveDirectionX * moveX * moveSpeed;
+        
         //按下shift加速移动摄像机
         moveSpeed = 1.5f * rate;
         if (Input.GetKey(KeyCode.LeftShift))
             moveSpeed = 2.5f * rate;
         if (Input.GetKeyUp(KeyCode.LeftShift))
             moveSpeed = 1.5f * rate;
+        if (Input.GetMouseButton(0)) {
+            cameraPos += -1 * Input.GetAxis("Mouse X") / Time.deltaTime * 0.5f * moveSpeed * moveDirectionX;
+            cameraPos += -1 * Input.GetAxis("Mouse Y") / Time.deltaTime * 0.5f * moveSpeed * moveDirectionZ;
+        }
     }
     void ZoomCamera()
     {
@@ -93,7 +99,7 @@ public class CameraControl : MonoBehaviour {
     void RotateCamera() {
         //按下鼠标右键旋转摄像机
         if (Input.GetMouseButton(1)) {
-            rotateAngle = Input.GetAxis("Mouse X")*rotateSpeed*Time.deltaTime;
+            rotateAngle = Input.GetAxis("Mouse X")*rotateSpeed*Time.deltaTime * 3;
             mainCamera.transform.Rotate(0,rotateAngle,0,Space.World);
         }
     }
