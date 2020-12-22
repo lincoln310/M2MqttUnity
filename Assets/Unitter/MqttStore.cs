@@ -12,8 +12,7 @@ namespace Unitter
     [Serializable]
     public class GlobalState 
     {
-        public static BuildContext context { get; set; }
-        public MqttModel mqttModel { get; }
+        public MqttModel mqttModel { get; } 
         public GlobalState(MqttModel model)
         {
             this.mqttModel = model;
@@ -88,12 +87,6 @@ namespace Unitter
         public delegate GlobalState DlgAction(GlobalState obj);
         public static GlobalState Reducer(GlobalState state, object action)
         {
-            // if (action is BaseAction)
-            // {
-            //     var baseReducer = action as BaseAction;
-            //     baseReducer.Do();
-            //     return state;
-            // } 
             if (action is DlgAction)
             {
                 var act = action as DlgAction;
@@ -105,20 +98,7 @@ namespace Unitter
                 act();
                 return state;
             }
-            else
-                return state;
+            return state;
         }
-    }
-    public abstract class BaseAction
-    {
-        public BaseAction() { }
-    
-        public abstract GlobalState Do(GlobalState state);
-
-        //use :
-        // BaseAction c = new BaseAction((Action)delegate()
-        // {
-        //     // insert code here
-        // });
     }
 }

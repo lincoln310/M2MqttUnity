@@ -25,7 +25,7 @@ public class CameraControl : MonoBehaviour {
     void Start ()
     {
         mainCamera = Camera.main.gameObject;
-        terrain = GameObject.Find("terrain");
+        terrain = GameObject.Find("map");
         //获取地图尺寸
         sizeX = terrain.GetComponent<TerrainCollider>().bounds.size.x;
         sizeZ = terrain.GetComponent<TerrainCollider>().bounds.size.z;

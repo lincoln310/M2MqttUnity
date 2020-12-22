@@ -34,7 +34,14 @@ namespace Unitter
             return new StoreProvider<GlobalState>(
                 store: GlobalState.store,
                 child: new WidgetsApp(
-                    home: new BrokerPage(),
+                    initialRoute:"/", //名为"/"的路由作为应用的home(首页)
+                    // theme: new ThemeData(primarySwatch: Colors.blue),
+                    //注册路由表
+                    routes: new Dictionary<string, WidgetBuilder>(){
+                        {"/", (context) => new BrokerPage()}, //注册首页路由
+                        // {"/broker/topics", (context) => new TopicPage()},
+                        // {"/broker/topic/msges", (context) => new MsgWidget()},
+                    },
                     pageRouteBuilder: (RouteSettings settings, WidgetBuilder builder) =>
                         new PageRouteBuilder(
                             settings: settings,

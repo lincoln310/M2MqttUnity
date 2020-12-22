@@ -31,13 +31,14 @@ namespace Unitter
                 {
                     return new Scaffold(
                         appBar: new AppBar(
+                            leading: new IconButton(icon: new Icon(Icons.map), onPressed: () =>
+                            {
+                                // var panel = GameObject.Find("CtrlPanel");
+                                // panel.SetActive(false);
+                            }),
                             title: new Center(child: new Text("broker列表")),
                             actions: new List<Widget>()
                             {
-                                new IconButton(
-                                    icon: new Icon(Icons.map),
-                                    onPressed: () => { SceneManager.LoadScene("map"); }
-                                    ),
                                 new IconButton(
                                     icon: new Icon(Icons.add),
                                     onPressed: () => { Navigator.push(ctx, new MaterialPageRoute(
@@ -78,9 +79,12 @@ namespace Unitter
                         TopicPage.TurnOnOff(brokerModel, dispatcher),
                         new IconButton(
                             icon: new Icon(Icons.arrow_right),
-                            onPressed: () => { Navigator.push(context, new MaterialPageRoute(
-                                (ctx) => new TopicPage(brokerModel.name)
-                                )); })
+                            onPressed: () => { 
+                                // Navigator.push(context, new MaterialPageRoute(
+                                // (ctx) => new TopicPage(brokerModel.name)
+                                // ));
+                                Navigator.pushNamed(context, "/broker/topics", brokerModel.name);
+                            })
                     }),
                 onTap: () =>
                 {

@@ -220,18 +220,6 @@ namespace Unitter
             client.Publish(topic, msg); 
         }
 
-        public class AddTopic : BaseAction
-        {
-            public string brokerName;
-            public TopicModel topicModel;
-
-            public override GlobalState Do(GlobalState state)
-            {
-                state.mqttModel.model(brokerName).add(topicModel);
-                return state;
-            }
-        }
-
         public BrokerModel(string host, string name = null)
         {
             this.host = host;

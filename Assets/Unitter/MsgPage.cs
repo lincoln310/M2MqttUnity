@@ -25,10 +25,17 @@ namespace Unitter
             this.topic = topic;
         }
 
+        public MsgWidget()
+        {
+        }
+
         ScrollController _scrollController = new ScrollController();
 
         public override Widget build(BuildContext context)
         {
+            List<string> args= ModalRoute.of(context).settings.arguments as List<string>;
+            this.broker = args[0];
+            this.topic = args[1];
             return new StoreConnector<GlobalState, TopicModel>(
                 // pure: true, // 这个参数不知道干嘛用的
                 converter: (state) => { return state.mqttModel.model(this.broker).allTopices[this.topic]; },

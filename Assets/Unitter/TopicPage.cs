@@ -24,8 +24,14 @@ namespace Unitter
             this.brokerName = brokerName;
         }
 
+        public TopicPage(Key key = null) : base(key)
+        {
+        }
+
         public override Widget build(BuildContext context)
         {
+            var args= ModalRoute.of(context).settings.arguments;
+            brokerName = args as string;
             return new StoreConnector<GlobalState, BrokerModel>(
                 // pure: true, // 这个参数不知道干嘛用的
                 converter: (state) => { return state.mqttModel.model(this.brokerName); },
@@ -96,9 +102,12 @@ namespace Unitter
                         ),
                         new IconButton(
                             icon: new Icon(Icons.arrow_right),
-                            onPressed: () => { Navigator.push(context, new MaterialPageRoute(
-                                (ctx) => new MsgWidget(brokerModel.name, topicModel.topic)
-                            )); })
+                            onPressed: () => { 
+                                Navigator.pushNamed(context, "/broker/topics", new List<string>{brokerModel.name, topicModel.topic});
+                                // Navigator.push(context, new MaterialPageRoute(
+                                // (ctx) => new MsgWidget(brokerModel.name, topicModel.topic)
+                                // )); 
+                        })
                     })
             );
         }
