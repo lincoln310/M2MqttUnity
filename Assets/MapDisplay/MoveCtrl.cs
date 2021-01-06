@@ -1,6 +1,7 @@
 ﻿using System;
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class LocTime
 {
@@ -27,14 +28,23 @@ public class MoveCtrl : MonoBehaviour {
         preLocTime = new LocTime();
         preLocTime.loc = transform.position;
         preLocTime.ts = DateTime.Now;
+        
     }
 
-
+    private void Awake()
+    {
+        List<TextMesh> comps = new List<TextMesh>();
+        GetComponentsInChildren(comps);
+         
+        loc = comps.Find(mesh => mesh.name == "Loc");
+        name = comps.Find(mesh => mesh.name == "Name");
+    }
 
     private Vector3 preLoc;
     private Vector3 step;
     private float time;
-    
+    private TextMesh name;
+    private TextMesh loc;
     
 
     // Update is called once per frame
@@ -48,12 +58,23 @@ public class MoveCtrl : MonoBehaviour {
                 newLoc(worldPosition);
         }
         GetAnimationCurveValue();
+        Awake();
+        if(loc != null)
+            loc.text = transform.position.ToString();
+        if (Camera.current != null)
+        {
+            Vector3 cameraDirection = Camera.current.transform.forward;
+            transform.rotation = Quaternion.LookRotation (cameraDirection);
+        }
     }
     
     LocTime mousePos()
     {
-        TerrainCollider terrainCollider = Terrain.activeTerrain.GetComponent<TerrainCollider>();
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        GameObject parent = transform.parent.gameObject;
+        TerrainCollider terrainCollider = parent.GetComponent<TerrainCollider>();
+        List<Camera> comps = new List<Camera>();
+        parent.GetComponentsInChildren(comps);
+        Ray ray = comps[0].ScreenPointToRay(Input.mousePosition);
         RaycastHit hitData;
         if (terrainCollider.Raycast(ray, out hitData, 1000))
         {
