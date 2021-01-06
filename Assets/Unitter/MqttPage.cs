@@ -14,6 +14,7 @@ using Unity.UIWidgets.widgets;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Color = Unity.UIWidgets.ui.Color;
+using Constants = Unity.UIWidgets.material.Constants;
 using TextStyle = Unity.UIWidgets.painting.TextStyle;
 
 namespace Unitter
@@ -39,8 +40,8 @@ namespace Unitter
                     //注册路由表
                     routes: new Dictionary<string, WidgetBuilder>(){
                         {"/", (context) => new BrokerPage()}, //注册首页路由
-                        // {"/broker/topics", (context) => new TopicPage()},
-                        // {"/broker/topic/msges", (context) => new MsgWidget()},
+                        {"/broker/topics", (context) => new TopicPage()},
+                        {"/broker/topic/msges", (context) => new MsgWidget()},
                     },
                     pageRouteBuilder: (RouteSettings settings, WidgetBuilder builder) =>
                         new PageRouteBuilder(
@@ -50,14 +51,40 @@ namespace Unitter
                         )));
         }
 
+        private bool scaled = false;
         protected override void Update()
         {
-            base.Update();
-            if (GlobalState.changed)
+            if (!scaled || scaled != GlobalState.scaled)
             {
-                Debug.Log("changed backGround");
-                GlobalState.changed = false;
-                GlobalState.store.dispatcher.dispatch(GlobalState.store);
+                if (scaled != GlobalState.scaled)
+                {
+                    // panel.SetActive(false);
+                    if (GlobalState.scaled)
+                    {
+                        var panel = GameObject.Find("CtrlPanel");
+                        var rect = panel.GetComponent<RectTransform>();
+                        var edge = rect.rect.height - Constants.kToolbarHeight;
+                        rect.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Bottom, edge,
+                            Constants.kToolbarHeight);
+                    }
+                    else
+                    {
+                        var panel = GameObject.Find("CtrlPanel");
+                        var canvas = GameObject.Find("PanelCanvas");
+                        panel.GetComponent<RectTransform>().SetInsetAndSizeFromParentEdge(RectTransform.Edge.Bottom, 0,
+                            canvas.GetComponent<RectTransform>().rect.height);
+                    }
+
+                    scaled = GlobalState.scaled;
+                }
+
+                base.Update();
+                if (GlobalState.changed)
+                {
+                    Debug.Log("changed backGround");
+                    GlobalState.changed = false;
+                    GlobalState.store.dispatcher.dispatch(GlobalState.store);
+                }
             }
         }
     }

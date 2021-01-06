@@ -19,6 +19,8 @@ namespace Unitter
             Debug.Log("new state");
         }
 
+        [NonSerialized]
+        public static bool scaled = false;
         public static bool changed { get; set; } = false;
         static readonly string config = $"config.json";
         static readonly fsSerializer _serializer = new fsSerializer();

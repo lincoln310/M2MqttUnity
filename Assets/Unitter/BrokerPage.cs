@@ -12,6 +12,7 @@ using Unity.UIWidgets.widgets;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using DialogUtils = Unity.UIWidgets.material.DialogUtils;
+using Transform = Unity.UIWidgets.widgets.Transform;
 
 namespace Unitter
 {
@@ -20,7 +21,7 @@ namespace Unitter
         public BrokerPage(Key key = null) : base(key)
         {
         }
-
+        
         public override Widget build(BuildContext context)
         {
             Debug.Log("broker page build");
@@ -29,27 +30,27 @@ namespace Unitter
                 converter: (state) => state.mqttModel,
                 builder: (ctx, model, dispatcher) =>
                 {
+                    var body = ListView.builder(
+                        itemCount: model.count(),
+                        itemBuilder: (ctx2, index) => list(context, model, index, dispatcher)
+                    );
+                    var appBar = new AppBar(
+                        leading: new IconButton(icon: new Icon(Icons.map), onPressed: () =>
+                        {
+                            GlobalState.scaled = !GlobalState.scaled;
+                        }),
+                        title: new Center(child: new Text("broker列表")),
+                        actions: new List<Widget>()
+                        {
+                            new IconButton(
+                                icon: new Icon(Icons.add),
+                                onPressed: () => { Navigator.push(ctx, new MaterialPageRoute(builder: (ctx2) => new DialogAddHost())); }),
+                        }
+                    );
+
                     return new Scaffold(
-                        appBar: new AppBar(
-                            leading: new IconButton(icon: new Icon(Icons.map), onPressed: () =>
-                            {
-                                // var panel = GameObject.Find("CtrlPanel");
-                                // panel.SetActive(false);
-                            }),
-                            title: new Center(child: new Text("broker列表")),
-                            actions: new List<Widget>()
-                            {
-                                new IconButton(
-                                    icon: new Icon(Icons.add),
-                                    onPressed: () => { Navigator.push(ctx, new MaterialPageRoute(
-                                                builder: (ctx2) => new DialogAddHost()
-                                            )); }),
-                            }
-                        ),
-                        body: ListView.builder(
-                            itemCount: model.count(),
-                            itemBuilder: (ctx2, index) => list(context, model, index, dispatcher)
-                        )
+                        appBar: appBar,
+                        body: body
                     );
                 }
             );
@@ -72,9 +73,7 @@ namespace Unitter
                             icon: new Icon(Icons.delete),
                             onPressed: () =>
                             {
-                                dispatcher.dispatch((Action) delegate{
-                                    mqttModel.remove(brokerModel.name);
-                                });
+                                dispatcher.dispatch((Action) delegate { mqttModel.remove(brokerModel.name); });
                             }),
                         TopicPage.TurnOnOff(brokerModel, dispatcher),
                         new IconButton(
