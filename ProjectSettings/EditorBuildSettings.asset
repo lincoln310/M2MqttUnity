@@ -8,9 +8,6 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Unitter/mqtt.unity
     guid: cc0ec22e0353e451e897deb4e02c80d6
-  - enabled: 0
-    path: 
-    guid: 00000000000000000000000000000000
   - enabled: 1
     path: Assets/MapDisplay/map.unity
     guid: be492b126ff74a03b91daaea65c9e4d6

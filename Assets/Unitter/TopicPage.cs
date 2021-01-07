@@ -30,11 +30,18 @@ namespace Unitter
 
         public override Widget build(BuildContext context)
         {
-            var args= ModalRoute.of(context).settings.arguments;
-            brokerName = args as string;
+            if (brokerName == null)
+            {
+                var args = ModalRoute.of(context).settings.arguments;
+                brokerName = args as string;
+            }
+
+            if (brokerName == null)
+                return null;
+
             return new StoreConnector<GlobalState, BrokerModel>(
                 // pure: true, // 这个参数不知道干嘛用的
-                converter: (state) => { return state.mqttModel.model(this.brokerName); },
+                converter: (state) => state.mqttModel.model(brokerName),
                 builder: (ctx, brokerModel, dispatcher) =>
                 {
                     return new Scaffold(
@@ -103,7 +110,7 @@ namespace Unitter
                         new IconButton(
                             icon: new Icon(Icons.arrow_right),
                             onPressed: () => { 
-                                Navigator.pushNamed(context, "/broker/topics", new List<string>{brokerModel.name, topicModel.topic});
+                                Navigator.pushNamed(context, "/broker/topic/msges", new List<string>{brokerModel.name, topicModel.topic});
                                 // Navigator.push(context, new MaterialPageRoute(
                                 // (ctx) => new MsgWidget(brokerModel.name, topicModel.topic)
                                 // )); 

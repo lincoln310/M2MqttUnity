@@ -58,20 +58,19 @@ namespace Unitter
             {
                 if (scaled != GlobalState.scaled)
                 {
+                    var panel = GameObject.Find("CtrlPanel");
+                    var rect = panel.GetComponent<RectTransform>();
                     // panel.SetActive(false);
                     if (GlobalState.scaled)
                     {
-                        var panel = GameObject.Find("CtrlPanel");
-                        var rect = panel.GetComponent<RectTransform>();
                         var edge = rect.rect.height - Constants.kToolbarHeight;
                         rect.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Bottom, edge,
                             Constants.kToolbarHeight);
                     }
                     else
                     {
-                        var panel = GameObject.Find("CtrlPanel");
                         var canvas = GameObject.Find("PanelCanvas");
-                        panel.GetComponent<RectTransform>().SetInsetAndSizeFromParentEdge(RectTransform.Edge.Bottom, 0,
+                        rect.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Bottom, 0,
                             canvas.GetComponent<RectTransform>().rect.height);
                     }
 

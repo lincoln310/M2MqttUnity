@@ -25,13 +25,13 @@ public class CameraControl : MonoBehaviour {
     void Start ()
     {
         mainCamera = gameObject;
-        terrain = transform.parent.gameObject;
+        terrain = GameObject.Find("mainTerrian");
         //获取地图尺寸
         sizeX = terrain.GetComponent<TerrainCollider>().bounds.size.x;
         sizeZ = terrain.GetComponent<TerrainCollider>().bounds.size.z;
-        Debug.Log(terrain.transform.localScale);
-        Debug.Log(terrain.transform.localPosition);
-        Debug.Log(terrain.transform.position);
+        // Debug.Log(terrain.transform.localScale);
+        // Debug.Log(terrain.transform.localPosition);
+        // Debug.Log(terrain.transform.position);
         maxRangeX = terrain.transform.position.x + 1.25f * sizeX;
         minRangeX = terrain.transform.position.x + -0.25f * sizeX;
         maxRangeZ = terrain.transform.position.z + 1.25f * sizeZ;
@@ -41,9 +41,9 @@ public class CameraControl : MonoBehaviour {
         cameraPos.x = terrain.transform.position.x +  sizeX/ 2 ;
         cameraPos.y = terrain.transform.position.y + height;
         cameraPos.z = terrain.transform.position.z +  sizeZ/ 2 ;
-        Vector3 eulerAngles = new Vector3(rollAngle, 0, 0);
+        // Vector3 eulerAngles = new Vector3(rollAngle, 0, 0);
         // mainCamera.transform.position = cameraPos;
-        mainCamera.transform.eulerAngles = eulerAngles;
+        // mainCamera.transform.eulerAngles = eulerAngles;
         maxRangeY = sizeX;
         Debug.Log("地图尺寸为：" + sizeX + "X" + sizeZ);
         Debug.Log("当前位置" + cameraPos);
@@ -55,9 +55,9 @@ public class CameraControl : MonoBehaviour {
         rate = height / minRangeY/3;
         //更新摄像机坐标
         MoveCamera();
-        RotateCamera();
+        // RotateCamera();
         ZoomCamera();
-        LimitRange();
+        // LimitRange();
         mainCamera.transform.position = cameraPos;
     }
     void MoveCamera() {
@@ -83,14 +83,14 @@ public class CameraControl : MonoBehaviour {
         float tmpZoomSpd = zoomSpeed * rate * 0.5f;
         //滚动鼠标滑轮缩放摄像机
         if (Input.GetAxis("Mouse ScrollWheel") > 0) {
-            if (cameraPos.y < minRangeY)
-                return;
+            // if (cameraPos.y < minRangeY)
+                // return;
             Vector3 moveDirectionZ = transform.forward;
             cameraPos += moveDirectionZ * tmpZoomSpd;
         }
         if (Input.GetAxis("Mouse ScrollWheel") <0) {
-            if (cameraPos.y > maxRangeY)
-                return;
+            // if (cameraPos.y > maxRangeY)
+                // return;
             Vector3 moveDirectionZ = -transform.forward;
             cameraPos += moveDirectionZ * tmpZoomSpd;
         }

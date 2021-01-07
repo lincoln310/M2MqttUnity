@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using M2MqttUnity;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace Unitter
 {
@@ -101,6 +102,9 @@ namespace Unitter
 
         public void add(MsgModel model)
         {
+            if (model.topic.Contains("/loc/json"))
+                RtlsLayer.loc(model.message); 
+            
             this.msgModels.Add(model);
             if (model.msgType == MsgModel.MsgType.OUT)
             {
@@ -179,11 +183,10 @@ namespace Unitter
 
         protected override void DecodeMessage(string topic, byte[] message)
         {
-            base.DecodeMessage(topic, message);
+            // base.DecodeMessage(topic, message);
             string msg = System.Text.Encoding.Default.GetString(message);
             MsgModel msgModel = new MsgModel(topic, "recv", DateTime.Now.ToLocalTime().ToString(), msg);
             addMsg(name, topic, msgModel);
-            // GlobalState.store.dispatcher.dispatch<TopicModel>((GlobalState.DlgAction) delegate { return GlobalState.store.getState(); });
         }
 
         protected override void OnConnected()
@@ -364,7 +367,9 @@ namespace Unitter
 
         public BrokerModel model(string modelName)
         {
-            return this.allBrokers[modelName];
+            if(allBrokers.ContainsKey(modelName))
+                return this.allBrokers[modelName];
+            return null;
         }
 
         public BrokerModel GetBrokerModelByIdx(int idx)

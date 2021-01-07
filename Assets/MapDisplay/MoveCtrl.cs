@@ -2,15 +2,13 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using Unitter;
 
-public class LocTime
-{
-    public Vector3 loc;
-    public DateTime ts;
-}
-public class MoveCtrl : MonoBehaviour {
+
+public class MoveCtrl : MonoBehaviour, IEventMsgLoc{
 
     // private RectTransform rectTransform;
+    
 
     [SerializeField]
     public AnimationCurve animationCurve;  // 动画曲线
@@ -36,7 +34,7 @@ public class MoveCtrl : MonoBehaviour {
         List<TextMesh> comps = new List<TextMesh>();
         GetComponentsInChildren(comps);
          
-        loc = comps.Find(mesh => mesh.name == "Loc");
+        curLoc = comps.Find(mesh => mesh.name == "Loc");
         name = comps.Find(mesh => mesh.name == "Name");
     }
 
@@ -44,7 +42,9 @@ public class MoveCtrl : MonoBehaviour {
     private Vector3 step;
     private float time;
     private TextMesh name;
-    private TextMesh loc;
+    private TextMesh curLoc;
+
+    private LocTime newCurLoc = null;
     
 
     // Update is called once per frame
@@ -57,10 +57,16 @@ public class MoveCtrl : MonoBehaviour {
             if(worldPosition != null)
                 newLoc(worldPosition);
         }
+
+        if (newCurLoc != null)
+        {
+            newLoc(newCurLoc);
+            newCurLoc = null;
+        }
         GetAnimationCurveValue();
         Awake();
-        if(loc != null)
-            loc.text = transform.position.ToString();
+        if(curLoc != null)
+            curLoc.text = transform.position.ToString();
         if (Camera.current != null)
         {
             Vector3 cameraDirection = Camera.current.transform.forward;
@@ -165,5 +171,10 @@ public class MoveCtrl : MonoBehaviour {
         animaCur.Evaluate(time);
 
         return animaCur;
+    }
+
+    public void loc(LocTime msg)
+    {
+        newCurLoc = msg;
     }
 }
