@@ -2,7 +2,9 @@ using System;
 using System.IO;
 using System.Text;
 using FullSerializer;
+using Unitter;
 using Unity.UIWidgets;
+using Unity.UIWidgets.material;
 using Unity.UIWidgets.Redux;
 using Unity.UIWidgets.widgets;
 using UnityEngine;
@@ -12,6 +14,9 @@ namespace Unitter
     [Serializable]
     public class GlobalState 
     {
+        public static Widget btn2map(){
+            return new IconButton(icon: new Icon(Icons.map), onPressed: () => { GlobalState.hide = true; });
+        }
         public MqttModel mqttModel { get; } 
         public GlobalState(MqttModel model)
         {
@@ -19,8 +24,8 @@ namespace Unitter
             Debug.Log("new state");
         }
 
-        [NonSerialized]
-        public static bool scaled = false;
+        public static string curRoute = "/";
+        public static bool hide = false;
         public static bool changed { get; set; } = false;
         static readonly string config = $"config.json";
         static readonly fsSerializer _serializer = new fsSerializer();

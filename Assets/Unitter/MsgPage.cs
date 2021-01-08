@@ -51,6 +51,7 @@ namespace Unitter
                             ),
                             actions: new List<Widget>()
                             {
+                                GlobalState.btn2map(),
                                 new Switch(
                                     value: topicModel.connected,
                                     onChanged: (newValue) => topicModel.stateSwitch(!topicModel.connected)),

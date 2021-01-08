@@ -35,7 +35,7 @@ namespace Unitter
             return new StoreProvider<GlobalState>(
                 store: GlobalState.store,
                 child: new WidgetsApp(
-                    initialRoute:"/", //名为"/"的路由作为应用的home(首页)
+                    initialRoute: "/", //名为"/"的路由作为应用的home(首页)
                     // theme: new ThemeData(primarySwatch: Colors.blue),
                     //注册路由表
                     routes: new Dictionary<string, WidgetBuilder>(){
@@ -51,39 +51,19 @@ namespace Unitter
                         )));
         }
 
-        private bool scaled = false;
         protected override void Update()
         {
-            if (!scaled || scaled != GlobalState.scaled)
+            base.Update();
+            if (GlobalState.hide)
             {
-                if (scaled != GlobalState.scaled)
-                {
-                    var panel = GameObject.Find("CtrlPanel");
-                    var rect = panel.GetComponent<RectTransform>();
-                    // panel.SetActive(false);
-                    if (GlobalState.scaled)
-                    {
-                        var edge = rect.rect.height - Constants.kToolbarHeight;
-                        rect.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Bottom, edge,
-                            Constants.kToolbarHeight);
-                    }
-                    else
-                    {
-                        var canvas = GameObject.Find("PanelCanvas");
-                        rect.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Bottom, 0,
-                            canvas.GetComponent<RectTransform>().rect.height);
-                    }
-
-                    scaled = GlobalState.scaled;
-                }
-
-                base.Update();
-                if (GlobalState.changed)
-                {
-                    Debug.Log("changed backGround");
-                    GlobalState.changed = false;
-                    GlobalState.store.dispatcher.dispatch(GlobalState.store);
-                }
+                base.transform.gameObject.SetActive(false);
+                GlobalState.hide = false;
+            }
+            if (GlobalState.changed)
+            {
+                Debug.Log("changed backGround");
+                GlobalState.changed = false;
+                GlobalState.store.dispatcher.dispatch(GlobalState.store);
             }
         }
     }

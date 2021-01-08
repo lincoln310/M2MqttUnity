@@ -35,13 +35,10 @@ namespace Unitter
                         itemBuilder: (ctx2, index) => list(context, model, index, dispatcher)
                     );
                     var appBar = new AppBar(
-                        leading: new IconButton(icon: new Icon(Icons.map), onPressed: () =>
-                        {
-                            GlobalState.scaled = !GlobalState.scaled;
-                        }),
                         title: new Center(child: new Text("broker列表")),
                         actions: new List<Widget>()
                         {
+                            GlobalState.btn2map(),
                             new IconButton(
                                 icon: new Icon(Icons.add),
                                 onPressed: () => { Navigator.push(ctx, new MaterialPageRoute(builder: (ctx2) => new DialogAddHost())); }),

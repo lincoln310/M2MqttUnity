@@ -23,6 +23,12 @@ public class RtlsLayer : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        if(icosphere == null)
+            icosphere = Resources.Load("Icosphere") as GameObject;
+    }
+
     private void Update()
     {
         if(icosphere == null)

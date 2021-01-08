@@ -53,6 +53,7 @@ namespace Unitter
                                 onPressed: () => { Navigator.pop(ctx); }),
                             actions: new List<Widget>()
                             {
+                                GlobalState.btn2map(),
                                 TurnOnOff(brokerModel, dispatcher),
                                 new IconButton(
                                     // textColor: Colors.white,
