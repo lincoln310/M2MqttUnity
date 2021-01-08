@@ -13,8 +13,8 @@ public class MoveCtrl : MonoBehaviour, IEventMsgLoc{
     [SerializeField]
     public AnimationCurve animationCurve;  // 动画曲线
     LocTime preLocTime = null;
+    public string id;
 
-    private bool added = false;
     void Start()
     {
         // 遍历关键帧数组，打印每一个关键帧的 time 和 value
@@ -64,9 +64,11 @@ public class MoveCtrl : MonoBehaviour, IEventMsgLoc{
             newCurLoc = null;
         }
         GetAnimationCurveValue();
-        Awake();
+        // Awake();
         if(curLoc != null)
             curLoc.text = transform.position.ToString();
+        if(id != null)
+            name.text = id;
         if (Camera.current != null)
         {
             Vector3 cameraDirection = Camera.current.transform.forward;
@@ -173,8 +175,23 @@ public class MoveCtrl : MonoBehaviour, IEventMsgLoc{
         return animaCur;
     }
 
-    public void loc(LocTime msg)
+    public void loc(DevLoc devLoc)
     {
-        newCurLoc = msg;
+        id = devLoc.devId.ToString();
+        float[] loc = devLoc.loc;
+        if (float.IsNaN(loc[0]) || float.IsNaN(loc[1]) || float.IsNaN(loc[2]))
+            return;
+        if (loc[2] < 0.1)
+            loc[2] = 100;
+        newCurLoc = new LocTime
+        {
+            loc = new Vector3(loc[0], loc[2], loc[1]),
+            ts = DateTime.FromBinary(devLoc.ts)
+        };
+    }
+
+    public void setName(string id)
+    {
+        this.id = id;
     }
 }
